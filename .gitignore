@@ -36,6 +36,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# secrets (Google service account key)
+names-of-god-*.json
+
+# large source/build artifacts (not source code)
+*.pdf
+*.apk
+*.aab
+
 # generated native folders
 /ios
 /android

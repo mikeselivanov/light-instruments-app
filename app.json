@@ -1,15 +1,17 @@
 {
   "expo": {
     "name": "light-instruments-app",
-    "slug": "light-instruments-app",
+    "slug": "names-of-god",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "scheme": "seventytwonames",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.mikeselivanov.namesofgod",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -20,6 +22,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c9686197-f384-43e9-9fad-083d16c113b5"
+      }
+    },
+    "owner": "mikeselivanovs-team",
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ]
   }
 }
