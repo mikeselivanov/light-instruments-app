@@ -16,6 +16,14 @@
         "buildType": "app-bundle",
         "credentialsSource": "local"
       }
+    },
+    "rustore": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local"
+      }
     }
   },
   "submit": {
