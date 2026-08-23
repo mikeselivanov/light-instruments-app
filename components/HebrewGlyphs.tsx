@@ -18,7 +18,7 @@ export function HebrewGlyphs({ letters, variant, size = 'default' }: Props) {
       <View style={styles.compactRow}>
         {letters.map((letter, i) => (
           <Text key={i} style={styles.compactGlyph}>
-            {glyphFor(letter)}
+            {glyphFor(letter, i === letters.length - 1)}
           </Text>
         ))}
       </View>
@@ -32,7 +32,7 @@ export function HebrewGlyphs({ letters, variant, size = 'default' }: Props) {
       {letters.map((letter, i) => (
         <View key={i} style={styles.displayColumn}>
           <Text style={[styles.displayGlyph, large && styles.displayGlyphLarge]}>
-            {glyphFor(letter)}
+            {glyphFor(letter, i === letters.length - 1)}
           </Text>
           <Text style={[styles.displayTranslit, large && styles.displayTranslitLarge]}>
             {letter}
