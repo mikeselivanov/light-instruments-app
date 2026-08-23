@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "light-instruments-app",
+    "name": "72 Имени Бога",
     "slug": "names-of-god",
     "version": "1.0.0",
+    "description": "Каталог 72 Имён Бога из Каббалы: список, детали, случайное имя дня и избранное — для ежедневной практики.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "seventytwonames",
@@ -13,7 +14,7 @@
     "android": {
       "package": "com.mikeselivanov.namesofgod",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0e0d12",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

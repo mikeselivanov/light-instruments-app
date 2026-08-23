@@ -10,6 +10,9 @@ const PARAGRAPHS = [
   'Чтобы Имя подействовало, книга называет три условия: уверенность в его силе, понимание смысла и физическое действие — сосредоточенное всматривание в буквы во время медитации.',
 ];
 
+const ATTRIBUTION =
+  'Приложение основано на книге «72 Имени Бога» Иегуды Берга (Yehuda Berg, Kabbalah Centre International). Все тексты в приложении — авторский пересказ своими словами, а не официальное издание книги.';
+
 export default function Intro() {
   const insets = useSafeAreaInsets();
 
@@ -32,6 +35,8 @@ export default function Intro() {
           </Text>
         ))}
       </View>
+
+      <Text style={styles.attribution}>{ATTRIBUTION}</Text>
     </ScrollView>
   );
 }
@@ -71,5 +76,12 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     lineHeight: 24,
     color: colors.parchment,
+  },
+  attribution: {
+    fontFamily: fonts.body,
+    fontSize: 11.5,
+    lineHeight: 18,
+    color: colors.parchmentDim,
+    marginTop: 28,
   },
 });
