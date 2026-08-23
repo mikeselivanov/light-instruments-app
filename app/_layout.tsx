@@ -37,11 +37,17 @@ export default function RootLayout() {
           <View style={{ flex: 1, backgroundColor: colors.void }}>
             <StatusBar style="light" />
             <Stack
-              screenOptions={{
+              screenOptions={({ route }) => ({
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.void },
-                animation: 'slide_from_right',
-              }}
+                // Swiping to the previous name (`dir=prev`) should feel like
+                // going backward — slide in from the left instead of the
+                // app-wide default.
+                animation:
+                  (route.params as { dir?: string } | undefined)?.dir === 'prev'
+                    ? 'slide_from_left'
+                    : 'slide_from_right',
+              })}
             />
           </View>
         </FavoritesProvider>

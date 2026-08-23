@@ -38,9 +38,9 @@ export default function NameDetail() {
     .runOnJS(true)
     .onEnd((e) => {
       if (e.translationX <= -SWIPE_DISTANCE_THRESHOLD) {
-        router.replace(`/names/${nextId}`);
+        router.replace({ pathname: '/names/[id]', params: { id: String(nextId), dir: 'next' } });
       } else if (e.translationX >= SWIPE_DISTANCE_THRESHOLD) {
-        router.replace(`/names/${prevId}`);
+        router.replace({ pathname: '/names/[id]', params: { id: String(prevId), dir: 'prev' } });
       }
     });
 
