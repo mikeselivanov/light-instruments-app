@@ -35,7 +35,7 @@ export default function NameDetail() {
         <Text style={styles.num}>
           Имя {String(name.id).padStart(2, '0')} из {NAMES.length}
         </Text>
-        <HebrewGlyphs letters={name.hebrewLetters} variant="display" />
+        <HebrewGlyphs letters={name.hebrewLetters} variant="display" size="large" />
         <Text style={styles.title}>{name.title}</Text>
         <View style={styles.tags}>
           {[name.category, ...name.keywords].map((k) => (

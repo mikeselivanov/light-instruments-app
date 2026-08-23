@@ -5,16 +5,17 @@ import { colors, fonts } from '../lib/theme';
 type Props = {
   letters: [string, string, string];
   variant: 'compact' | 'display';
+  size?: 'default' | 'large';
 };
 
-// 'compact' — a narrow vertical stack of bare glyphs for list rows, where
-// horizontal space is scarce and the name title needs the room instead.
-// 'display' — three glyph+transliteration columns side by side, used where
-// the letters are the focal point (name-of-day card, detail screen).
-export function HebrewGlyphs({ letters, variant }: Props) {
+// 'compact' — the three glyphs in a row, right-to-left (as the name is
+// actually read), for list rows. 'display' — glyph+transliteration columns,
+// also right-to-left, used where the letters are the focal point (name-of-day
+// card, detail screen); `size="large"` scales it up for the meditation view.
+export function HebrewGlyphs({ letters, variant, size = 'default' }: Props) {
   if (variant === 'compact') {
     return (
-      <View style={styles.compactStack}>
+      <View style={styles.compactRow}>
         {letters.map((letter, i) => (
           <Text key={i} style={styles.compactGlyph}>
             {glyphFor(letter)}
@@ -24,12 +25,18 @@ export function HebrewGlyphs({ letters, variant }: Props) {
     );
   }
 
+  const large = size === 'large';
+
   return (
-    <View style={styles.displayRow}>
+    <View style={[styles.displayRow, large && styles.displayRowLarge]}>
       {letters.map((letter, i) => (
         <View key={i} style={styles.displayColumn}>
-          <Text style={styles.displayGlyph}>{glyphFor(letter)}</Text>
-          <Text style={styles.displayTranslit}>{letter}</Text>
+          <Text style={[styles.displayGlyph, large && styles.displayGlyphLarge]}>
+            {glyphFor(letter)}
+          </Text>
+          <Text style={[styles.displayTranslit, large && styles.displayTranslitLarge]}>
+            {letter}
+          </Text>
         </View>
       ))}
     </View>
@@ -37,22 +44,23 @@ export function HebrewGlyphs({ letters, variant }: Props) {
 }
 
 const styles = StyleSheet.create({
-  compactStack: {
-    width: 26,
+  compactRow: {
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
+    gap: 2,
   },
   compactGlyph: {
     fontFamily: fonts.displayHebrew,
-    fontSize: 15,
-    lineHeight: 17,
+    fontSize: 17,
     color: colors.spark,
   },
   displayRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'center',
     gap: 22,
+  },
+  displayRowLarge: {
+    gap: 30,
   },
   displayColumn: {
     alignItems: 'center',
@@ -63,11 +71,18 @@ const styles = StyleSheet.create({
     fontSize: 40,
     color: colors.parchment,
   },
+  displayGlyphLarge: {
+    fontSize: 64,
+  },
   displayTranslit: {
     fontFamily: fonts.body,
     fontSize: 10.5,
     letterSpacing: 0.06 * 10.5,
     textTransform: 'uppercase',
     color: colors.parchmentDim,
+  },
+  displayTranslitLarge: {
+    fontSize: 13,
+    letterSpacing: 0.06 * 13,
   },
 });
