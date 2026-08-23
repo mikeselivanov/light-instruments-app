@@ -17,7 +17,7 @@ export default function RootLayout() {
     'PTSerif-Bold': require('../assets/fonts/PTSerif-Bold.ttf'),
     PTSans: require('../assets/fonts/PTSans-Regular.ttf'),
     'PTSans-Bold': require('../assets/fonts/PTSans-Bold.ttf'),
-    FrankRuhlLibre: require('../assets/fonts/FrankRuhlLibre.ttf'),
+    StamAshkenaz: require('../assets/fonts/StamAshkenaz.ttf'),
   });
 
   const onLayout = useCallback(() => {

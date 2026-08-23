@@ -15,7 +15,7 @@ export const colors = {
 } as const;
 
 export const fonts = {
-  displayHebrew: 'FrankRuhlLibre',
+  displayHebrew: 'StamAshkenaz',
   displayRu: 'PTSerif',
   displayRuBold: 'PTSerif-Bold',
   body: 'PTSans',
