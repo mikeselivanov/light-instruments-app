@@ -36,8 +36,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# secrets (Google service account key)
+# secrets (Google service account key, EAS local keystore credentials)
 names-of-god-*.json
+credentials.json
+credentials/
 
 # large source/build artifacts (not source code)
 *.pdf
