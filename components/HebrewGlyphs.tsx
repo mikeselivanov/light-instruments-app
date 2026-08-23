@@ -75,10 +75,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 22,
+    gap: 10,
   },
   displayRowLarge: {
-    gap: 30,
+    gap: 14,
   },
   displayColumn: {
     alignItems: 'center',
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   displayGlyph: {
     fontFamily: fonts.displayHebrew,
     fontSize: 40,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     color: colors.parchment,
   },
   displayGlyphLarge: {

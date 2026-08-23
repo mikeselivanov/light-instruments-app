@@ -46,6 +46,9 @@ credentials/
 *.apk
 *.aab
 
+# third-party extracted APK (reference only, not ours to distribute)
+/zohar_apk/
+
 # generated native folders
 /ios
 /android
