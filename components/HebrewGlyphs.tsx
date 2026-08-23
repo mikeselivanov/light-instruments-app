@@ -62,12 +62,14 @@ const styles = StyleSheet.create({
   compactGlyph: {
     fontFamily: fonts.displayHebrew,
     fontSize: 17,
+    paddingHorizontal: 2,
     color: colors.spark,
   },
   compactDot: {
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.sparkSoft,
+    transform: [{ translateY: -4 }],
   },
   displayRow: {
     flexDirection: 'row-reverse',
@@ -85,6 +87,7 @@ const styles = StyleSheet.create({
   displayGlyph: {
     fontFamily: fonts.displayHebrew,
     fontSize: 40,
+    paddingHorizontal: 4,
     color: colors.parchment,
   },
   displayGlyphLarge: {
@@ -105,8 +108,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 28,
     color: colors.parchmentDim,
+    transform: [{ translateY: -8 }],
   },
   displayDotLarge: {
     fontSize: 40,
+    transform: [{ translateY: -13 }],
   },
 });
