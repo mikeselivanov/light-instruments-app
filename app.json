@@ -12,14 +12,15 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.mikeselivanov.namesofgod",
+      "package": "com.mikeselivanov",
       "adaptiveIcon": {
         "backgroundColor": "#0e0d12",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
