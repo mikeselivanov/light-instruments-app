@@ -27,7 +27,7 @@ export default function Home() {
         onPress={() => router.push(`/names/${today.id}`)}
       >
         <Text style={styles.dayEyebrow}>Имя дня</Text>
-        <HebrewGlyphs letters={today.hebrewLetters} variant="display" />
+        <HebrewGlyphs letters={today.hebrewLetters} variant="display" size="large" />
         <Text style={styles.dayTitle}>{today.title}</Text>
         <Text style={styles.dayTeaser} numberOfLines={3}>
           {today.summary}
