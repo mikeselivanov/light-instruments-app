@@ -1,8 +1,10 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 import { colors, fonts } from '../lib/theme';
+import { useNotificationSettings } from '../lib/notifications';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
@@ -13,21 +15,28 @@ const WHEEL_PADDING = ITEM_HEIGHT; // one empty row above/below so edge values c
 
 export default function Settings() {
   const insets = useSafeAreaInsets();
-  // TODO(Task 4): заменить локальный useState на useNotificationSettings()
-  // из lib/notifications.tsx — сигнатура хука уже зафиксирована в Task 3.
-  const [enabled, setEnabled] = useState(false);
-  const [hour, setHour] = useState(9);
-  const [minute, setMinute] = useState(0);
-  const [osPermissionDenied, setOsPermissionDenied] = useState(false);
-  const [scheduleError, setScheduleError] = useState(false);
+  const {
+    enabled,
+    hour,
+    minute,
+    osPermissionDenied,
+    scheduleError,
+    setEnabled,
+    setTime,
+    recheckPermission,
+  } = useNotificationSettings();
 
-  // Task 4 sources this from the hook instead of local state; the shape
-  // (single optional { text, tappable } hint) is what's being approved here.
   const hint = osPermissionDenied
-    ? { text: 'Уведомления выключены в настройках телефона. Включите их в системных настройках приложения, чтобы получать напоминание.', tappable: true }
+    ? { text: 'Уведомления выключены в настройках телефона. Нажмите, чтобы открыть системные настройки приложения и включить их.', tappable: true }
     : scheduleError
       ? { text: 'Не удалось включить уведомления, попробуйте ещё раз.', tappable: false }
       : null;
+
+  useFocusEffect(
+    useCallback(() => {
+      recheckPermission();
+    }, [recheckPermission])
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 20 }]}>
@@ -53,14 +62,22 @@ export default function Settings() {
         <View style={styles.timeRow}>
           <Text style={styles.rowLabel}>Время</Text>
           <View style={styles.wheelGroup}>
-            <TimeWheel value={hour} onChange={setHour} values={HOURS} />
+            <TimeWheel value={hour} onChange={(next) => setTime(next, minute)} values={HOURS} />
             <Text style={styles.colon}>:</Text>
-            <TimeWheel value={minute} onChange={setMinute} values={MINUTES} />
+            <TimeWheel value={minute} onChange={(next) => setTime(hour, next)} values={MINUTES} />
           </View>
         </View>
       )}
 
-      {hint && <Text style={styles.hint}>{hint.text}</Text>}
+      {hint && (
+        hint.tappable ? (
+          <Pressable onPress={() => Linking.openSettings()}>
+            <Text style={styles.hint}>{hint.text}</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.hint}>{hint.text}</Text>
+        )
+      )}
     </View>
   );
 }
