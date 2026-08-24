@@ -4,7 +4,7 @@
 
 **Goal:** Опциональное ежедневное локальное уведомление «Имя дня» с экраном настроек (тумблер + выбор времени), которое по тапу открывает сегодняшнее имя.
 
-**Architecture:** Один повторяющийся локальный триггер `expo-notifications` (`SchedulableTriggerInputTypes.DAILY`), без сервера/FCM/фоновых задач. Настройки живут в новом React-контексте `lib/notifications.tsx` (по образцу существующего `lib/favorites.tsx`), персистятся в AsyncStorage. Экран `app/settings.tsx` использует собственный (не сторонний) компонент выбора времени, потому что `@react-native-community/datetimepicker` — единственная стандартная альтернатива — **не поддерживает веб-платформу**, а весь визуальный QA в этом проекте идёт через `npm run web` + Playwright-скриншоты; сторонний пикер сломал бы этот процесс и сделал бы невозможным обязательный гейт согласования дизайна (см. ниже).
+**Architecture:** Один повторяющийся локальный триггер `expo-notifications` (`SchedulableTriggerInputTypes.DAILY`), без сервера/FCM/фоновых задач. Настройки живут в новом React-контексте `lib/notifications.tsx` (по образцу существующего `lib/favorites.tsx`), персистятся в AsyncStorage. Экран `app/settings.tsx` использует собственный (не сторонний) компонент выбора времени — прокручиваемое «колесо» на чистом `ScrollView` (`snapToInterval`), а не `@react-native-community/datetimepicker`, потому что эта библиотека **не поддерживает веб-платформу**, а весь визуальный QA в этом проекте идёт через `npm run web` + Playwright-скриншоты; сторонний пикер сломал бы этот процесс и сделал бы невозможным обязательный гейт согласования дизайна (см. ниже). Точка входа на экран настроек — иконка-шестерёнка (`@expo/vector-icons`, уже бандлится с Expo, отдельная зависимость не нужна) рядом с датой на главном экране, а не отдельная плитка в сетке: пробный вариант с плиткой визуально «осиротел» под полноширинной плиткой «Все имена», решение пересмотрено пользователем в ходе Task 2.
 
 **Tech Stack:** Expo SDK 54, `expo-notifications`, `expo-router`, React Context + `@react-native-async-storage/async-storage`, `expo-linking` (`Linking.openSettings()`).
 
@@ -17,7 +17,7 @@
 - Текст уведомления фиксированный, без имени: заголовок «Имя дня», текст «Новое имя дня готово — откройте, чтобы узнать».
 - Тап по уведомлению открывает `app/names/[id]` с именем, пересчитанным в момент тапа через `nameOfTheDay()` — не «замороженным» на момент показа.
 - Тумблер обязан отражать реальное состояние OS-разрешения: если пользователь отозвал разрешение в системных настройках телефона, тумблер должен сам погаснуть при следующем открытии экрана настроек, с подсказкой.
-- **Обязательный гейт: дизайн `app/settings.tsx` и добавленной плитки на `app/index.tsx` должен быть представлен пользователю (скриншот веб-превью) и явно одобрен, прежде чем будет написана бизнес-логика уведомлений (`lib/notifications.tsx`) и уж тем более прежде любой EAS-сборки.** Задача 2 ниже заканчивается этим гейтом и не может считаться выполненной без явного «да» от пользователя.
+- **Обязательный гейт: дизайн `app/settings.tsx` и точки входа на него с `app/index.tsx` должен быть представлен пользователю (скриншот веб-превью) и явно одобрен, прежде чем будет написана бизнес-логика уведомлений (`lib/notifications.tsx`) и уж тем более прежде любой EAS-сборки.** Задача 2 ниже заканчивается этим гейтом и не может считаться выполненной без явного «да» от пользователя. Гейт уже пройден: пользователь увидел два раунда HTML-мокапов (плитка vs ссылка vs шестерёнка на главном экране; степпер vs одометр vs колесо-барабан для времени) вне дерева приложения и подтвердил финальный вариант — иконка-шестерёнка рядом с датой + прокручиваемое колесо времени. Задача 2 переписывается под этот вариант.
 - Платформы: Android и iOS оба поддерживаются кодом (`expo-notifications` работает одинаково), но в этом плане собирается и проверяется только Android-сборка — это единственная платформа, которую проект сейчас публикует.
 
 ---
@@ -89,17 +89,25 @@ git commit -m "Add expo-notifications dependency and Android notification icon c
 - Modify: `app/index.tsx`
 
 **Interfaces:**
-- Produces: `TimeStepper` — локальный компонент внутри `app/settings.tsx` с пропсами `{ value: number; onChange: (next: number) => void; min: number; max: number; step?: number; label: string }`. Task 4 переиспользует этот же компонент без изменений его API.
+- Produces: `TimeWheel` — локальный компонент внутри `app/settings.tsx` с пропсами `{ value: number; onChange: (next: number) => void; values: number[] }`. Task 4 переиспользует этот же компонент без изменений его API.
 - Produces: маршрут `/settings` (файл-роут `app/settings.tsx`, default export).
+- Produces: иконка-шестерёнка в `app/index.tsx`, открывающая `/settings` (не плитка в сетке — см. Architecture).
 
 - [ ] **Step 1: Написать `app/settings.tsx`**
 
 ```tsx
-import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '../lib/theme';
+
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+const ITEM_HEIGHT = 44;
+const VISIBLE_ROWS = 3;
+const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
+const WHEEL_PADDING = ITEM_HEIGHT; // one empty row above/below so edge values can reach center
 
 export default function Settings() {
   const insets = useSafeAreaInsets();
@@ -142,10 +150,10 @@ export default function Settings() {
       {enabled && (
         <View style={styles.timeRow}>
           <Text style={styles.rowLabel}>Время</Text>
-          <View style={styles.stepperGroup}>
-            <TimeStepper value={hour} onChange={setHour} min={0} max={23} label="ч" />
+          <View style={styles.wheelGroup}>
+            <TimeWheel value={hour} onChange={setHour} values={HOURS} />
             <Text style={styles.colon}>:</Text>
-            <TimeStepper value={minute} onChange={setMinute} min={0} max={55} step={5} label="мин" />
+            <TimeWheel value={minute} onChange={setMinute} values={MINUTES} />
           </View>
         </View>
       )}
@@ -155,37 +163,53 @@ export default function Settings() {
   );
 }
 
-function TimeStepper({
+function TimeWheel({
   value,
   onChange,
-  min,
-  max,
-  step = 1,
-  label,
+  values,
 }: {
   value: number;
   onChange: (next: number) => void;
-  min: number;
-  max: number;
-  step?: number;
-  label: string;
+  values: number[];
 }) {
-  const wrap = (n: number) => {
-    const range = max - min + step;
-    return min + (((n - min) % range) + range) % range;
-  };
+  const scrollRef = useRef<ScrollView>(null);
+  // Sentinel `null` forces the very first layout effect run to scroll too —
+  // ScrollView otherwise mounts scrolled to 0, not to `value`'s position.
+  const lastScrolledValue = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (value !== lastScrolledValue.current) {
+      const index = Math.max(0, values.indexOf(value));
+      scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+      lastScrolledValue.current = value;
+    }
+  }, [value, values]);
+
   return (
-    <View style={styles.stepper}>
-      <Pressable style={styles.stepperBtn} onPress={() => onChange(wrap(value - step))}>
-        <Text style={styles.stepperBtnText}>–</Text>
-      </Pressable>
-      <View>
-        <Text style={styles.stepperValue}>{String(value).padStart(2, '0')}</Text>
-        <Text style={styles.stepperLabel}>{label}</Text>
-      </View>
-      <Pressable style={styles.stepperBtn} onPress={() => onChange(wrap(value + step))}>
-        <Text style={styles.stepperBtnText}>+</Text>
-      </Pressable>
+    <View style={styles.wheel}>
+      <View pointerEvents="none" style={styles.wheelHighlight} />
+      <ScrollView
+        ref={scrollRef}
+        style={{ height: WHEEL_HEIGHT }}
+        contentContainerStyle={{ paddingVertical: WHEEL_PADDING }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_HEIGHT}
+        decelerationRate="fast"
+        onMomentumScrollEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+          const clamped = Math.max(0, Math.min(values.length - 1, index));
+          lastScrolledValue.current = values[clamped];
+          onChange(values[clamped]);
+        }}
+      >
+        {values.map((v) => (
+          <View key={v} style={styles.wheelRow}>
+            <Text style={[styles.wheelValue, v === value && styles.wheelValueActive]}>
+              {String(v).padStart(2, '0')}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -247,42 +271,42 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
   },
-  stepperGroup: {
+  wheelGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: 8,
     marginTop: 12,
   },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  wheel: {
+    width: 70,
+    height: WHEEL_HEIGHT,
   },
-  stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.veilRaised,
+  wheelHighlight: {
+    position: 'absolute',
+    top: ITEM_HEIGHT,
+    left: 2,
+    right: 2,
+    height: ITEM_HEIGHT,
+    backgroundColor: 'rgba(196, 146, 61, 0.12)',
+    borderRadius: 8,
+  },
+  wheelRow: {
+    height: ITEM_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperBtnText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    color: colors.parchment,
-  },
-  stepperValue: {
-    fontFamily: fonts.displayRuBold,
-    fontSize: 20,
-    color: colors.parchment,
-    textAlign: 'center',
-  },
-  stepperLabel: {
+  wheelValue: {
     fontFamily: fonts.body,
-    fontSize: 9.5,
+    fontSize: 17,
     color: colors.parchmentDim,
-    textAlign: 'center',
+    opacity: 0.5,
+  },
+  wheelValueActive: {
+    fontFamily: fonts.displayRuBold,
+    fontSize: 24,
+    color: colors.parchment,
+    opacity: 1,
   },
   colon: {
     fontFamily: fonts.displayRuBold,
@@ -299,17 +323,83 @@ const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 2: Добавить плитку «Настройки» на главный экран**
+`WHEEL_HEIGHT`/`ITEM_HEIGHT` are module-level constants shared by the styles and the scroll math — do not duplicate their values as literals elsewhere in the file.
 
-В [app/index.tsx](../../../app/index.tsx), в блок `<View style={styles.grid}>` после плитки «Все имена», добавить:
+- [ ] **Step 2: Добавить иконку-шестерёнку рядом с датой на главном экране**
+
+В [app/index.tsx](../../../app/index.tsx) добавить импорт:
 
 ```tsx
-<Tile
-  label="Настройки"
-  sub="Уведомления и время"
-  onPress={() => router.push('/settings')}
-/>
+import { Ionicons } from '@expo/vector-icons';
 ```
+
+(`@expo/vector-icons` уже установлен транзитивно как зависимость пакета `expo` — отдельно ставить не нужно, импорт разрешится через вложенный `node_modules/expo/node_modules/@expo/vector-icons`.)
+
+Заменить:
+
+```tsx
+      <Text style={styles.kicker}>{dateLabel}</Text>
+```
+
+на:
+
+```tsx
+      <View style={styles.topBar}>
+        <Text style={styles.kicker}>{dateLabel}</Text>
+        <Pressable
+          onPress={() => router.push('/settings')}
+          style={({ pressed }) => [styles.gearBtn, pressed && styles.pressed]}
+          hitSlop={8}
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.parchmentDim} />
+        </Pressable>
+      </View>
+```
+
+И в `styles`, заменить:
+
+```tsx
+  kicker: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.parchmentDim,
+    marginBottom: 18,
+  },
+```
+
+на:
+
+```tsx
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  kicker: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.parchmentDim,
+  },
+  gearBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.veil,
+    borderWidth: 1,
+    borderColor: colors.hairlineSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+```
+
+Не добавлять плитку «Настройки» в `<View style={styles.grid}>` — сетка тайлов остаётся ровно из 5 существующих плиток (Введение, Случайное имя, Категории, Избранное, Все имена), без изменений.
 
 - [ ] **Step 3: Проверить типы**
 
@@ -323,14 +413,14 @@ npm run web
 ```
 
 Открыть главный экран и `/settings` в браузере (или через уже используемый в проекте Playwright-скрипт для скриншотов), снять минимум 3 скриншота:
-1. Главный экран с новой плиткой «Настройки».
+1. Главный экран с иконкой-шестерёнкой рядом с датой (и без лишней плитки в сетке).
 2. `/settings` с выключенным тумблером.
-3. `/settings` с включённым тумблером и видимым time-picker'ом (временно установить `useState(true)` в Step 1 для `enabled`, снять скриншот, вернуть обратно на `false`).
+3. `/settings` с включённым тумблером и видимым колесом времени (временно установить `useState(true)` в Step 1 для `enabled`, снять скриншот, вернуть обратно на `false`).
 4. `/settings` с видимой подсказкой про OS-разрешение (временно установить `useState(true)` для `osPermissionDenied`, снять скриншот, вернуть обратно на `false`). Тот же визуальный блок `hint` переиспользуется для варианта «не удалось включить» (`scheduleError`) в Task 3/4 — отдельный скриншот для него не нужен, дизайн контейнера уже покрыт этим кадром.
 
 - [ ] **Step 5: СТОП — показать скриншоты пользователю и дождаться явного одобрения**
 
-Показать все 4 скриншота пользователю (например, открыть PNG-файлы через `open`, как это делалось для остальных экранов в этом проекте). **Не переходить к Task 3, пока пользователь явно не подтвердит дизайн.** Если запрошены правки — внести их в `app/settings.tsx`/`app/index.tsx`, вернуться к Step 4.
+Показать все 4 скриншота пользователю (например, открыть PNG-файлы через `open`, как это делалось для остальных экранов в этом проекте). Дизайн уже согласован через два раунда HTML-мокапов вне дерева приложения (см. Architecture) — этот шаг подтверждает, что финальная реализация в реальном коде визуально совпадает с одобренными мокапами, а не открывает дизайн заново. Если реализация разошлась с утверждённым видом — внести правки в `app/settings.tsx`/`app/index.tsx`, вернуться к Step 4. **Не переходить к Task 3, пока пользователь явно не подтвердит финальные скриншоты.**
 
 - [ ] **Step 6: Commit (только после одобрения)**
 
@@ -631,23 +721,25 @@ useFocusEffect(
 );
 ```
 
-- [ ] **Step 3: Обновить обработчики `TimeStepper`**
+- [ ] **Step 3: Обновить обработчики `TimeWheel`**
 
 Заменить:
 
 ```tsx
-<TimeStepper value={hour} onChange={setHour} min={0} max={23} label="ч" />
+<TimeWheel value={hour} onChange={setHour} values={HOURS} />
 <Text style={styles.colon}>:</Text>
-<TimeStepper value={minute} onChange={setMinute} min={0} max={55} step={5} label="мин" />
+<TimeWheel value={minute} onChange={setMinute} values={MINUTES} />
 ```
 
 на:
 
 ```tsx
-<TimeStepper value={hour} onChange={(next) => setTime(next, minute)} min={0} max={23} label="ч" />
+<TimeWheel value={hour} onChange={(next) => setTime(next, minute)} values={HOURS} />
 <Text style={styles.colon}>:</Text>
-<TimeStepper value={minute} onChange={(next) => setTime(hour, next)} min={0} max={55} step={5} label="мин" />
+<TimeWheel value={minute} onChange={(next) => setTime(hour, next)} values={MINUTES} />
 ```
+
+`TimeWheel` already re-syncs its scroll position whenever its `value` prop changes for any reason (see the `lastScrolledValue` ref + `useLayoutEffect` in Step 1) — including once `AsyncStorage` finishes loading with a persisted value different from the default. No extra work is needed here for that; this note exists only so you don't reintroduce the bug by "simplifying" `TimeWheel` back to a mount-only scroll.
 
 - [ ] **Step 4: Добавить ссылку на системные настройки в подсказку**
 
