@@ -33,7 +33,14 @@
     "owner": "mikeselivanovs-team",
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#c4923d"
+        }
+      ]
     ]
   }
 }
