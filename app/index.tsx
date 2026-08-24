@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { HebrewGlyphs } from '../components/HebrewGlyphs';
 import { useFavorites } from '../lib/favorites';
 import { nameOfTheDay, randomNameId } from '../lib/data';
@@ -20,7 +21,16 @@ export default function Home() {
     <ScrollView
       contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24 }]}
     >
-      <Text style={styles.kicker}>{dateLabel}</Text>
+      <View style={styles.topBar}>
+        <Text style={styles.kicker}>{dateLabel}</Text>
+        <Pressable
+          onPress={() => router.push('/settings')}
+          style={({ pressed }) => [styles.gearBtn, pressed && styles.pressed]}
+          hitSlop={8}
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.parchmentDim} />
+        </Pressable>
+      </View>
 
       <Pressable
         style={({ pressed }) => [styles.dayCard, pressed && styles.pressed]}
@@ -108,6 +118,12 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
   kicker: {
     fontFamily: fonts.body,
     fontSize: 11,
@@ -115,7 +131,16 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     color: colors.parchmentDim,
-    marginBottom: 18,
+  },
+  gearBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.veil,
+    borderWidth: 1,
+    borderColor: colors.hairlineSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dayCard: {
     borderRadius: 18,
