@@ -19,6 +19,7 @@ export default function Settings() {
     enabled,
     hour,
     minute,
+    isLoaded,
     osPermissionDenied,
     scheduleError,
     setEnabled,
@@ -53,6 +54,7 @@ export default function Settings() {
         <Switch
           value={enabled}
           onValueChange={setEnabled}
+          disabled={!isLoaded}
           trackColor={{ false: colors.hairline, true: colors.sparkSoft }}
           thumbColor={enabled ? colors.spark : colors.parchmentDim}
         />
@@ -62,16 +64,32 @@ export default function Settings() {
         <View style={styles.timeRow}>
           <Text style={styles.rowLabel}>Время</Text>
           <View style={styles.wheelGroup}>
-            <TimeWheel value={hour} onChange={(next) => setTime(next, minute)} values={HOURS} />
+            <TimeWheel
+              value={hour}
+              onChange={(next) => {
+                if (next !== hour) setTime(next, minute);
+              }}
+              values={HOURS}
+            />
             <Text style={styles.colon}>:</Text>
-            <TimeWheel value={minute} onChange={(next) => setTime(hour, next)} values={MINUTES} />
+            <TimeWheel
+              value={minute}
+              onChange={(next) => {
+                if (next !== minute) setTime(hour, next);
+              }}
+              values={MINUTES}
+            />
           </View>
         </View>
       )}
 
       {hint && (
         hint.tappable ? (
-          <Pressable onPress={() => Linking.openSettings()}>
+          <Pressable
+            onPress={() => Linking.openSettings()}
+            accessibilityRole="button"
+            style={({ pressed }) => pressed && styles.pressed}
+          >
             <Text style={styles.hint}>{hint.text}</Text>
           </Pressable>
         ) : (
@@ -134,6 +152,9 @@ function TimeWheel({
 }
 
 const styles = StyleSheet.create({
+  pressed: {
+    opacity: 0.6,
+  },
   screen: {
     flex: 1,
     backgroundColor: colors.void,
@@ -207,7 +228,7 @@ const styles = StyleSheet.create({
     left: 2,
     right: 2,
     height: ITEM_HEIGHT,
-    backgroundColor: 'rgba(196, 146, 61, 0.12)',
+    backgroundColor: colors.sparkWash,
     borderRadius: 8,
   },
   wheelRow: {

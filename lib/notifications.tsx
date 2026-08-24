@@ -12,14 +12,12 @@ type StoredSettings = {
   enabled: boolean;
   hour: number;
   minute: number;
-  notificationId: string | null;
 };
 
 const DEFAULT_SETTINGS: StoredSettings = {
   enabled: false,
   hour: 9,
   minute: 0,
-  notificationId: null,
 };
 
 type NotificationSettingsContextValue = {
@@ -37,7 +35,11 @@ type NotificationSettingsContextValue = {
 const NotificationSettingsContext = createContext<NotificationSettingsContextValue | null>(null);
 
 async function persist(settings: StoredSettings) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  // Swallow AsyncStorage failures here so every fire-and-forget call site
+  // (there are several) doesn't need its own .catch — an unpersisted write
+  // just means the in-memory state and storage drift until the next
+  // successful write, which is an acceptable degradation for this feature.
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings)).catch(() => {});
 }
 
 async function ensureAndroidChannel() {
@@ -48,9 +50,13 @@ async function ensureAndroidChannel() {
   });
 }
 
-async function cancelExisting(notificationId: string | null) {
-  if (!notificationId) return;
-  await Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {});
+async function cancelAll() {
+  // The app only ever has one active repeating notification, so cancelling
+  // everything before scheduling is simpler and more robust than tracking a
+  // single id — two overlapping calls (e.g. two wheel columns settling close
+  // together) each wipe the slate before scheduling their own, so the result
+  // is always exactly one live notification, never a leaked duplicate.
+  await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
 }
 
 async function scheduleDaily(hour: number, minute: number): Promise<string> {
@@ -83,24 +89,26 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
   }, []);
 
   const recheckPermission = async () => {
-    setSettings((current) => {
-      if (!current.enabled) return current;
-      Notifications.getPermissionsAsync().then(async ({ status }) => {
-        if (status !== 'granted') {
-          await cancelExisting(current.notificationId);
-          const next: StoredSettings = { ...current, enabled: false, notificationId: null };
-          setSettings(next);
-          await persist(next);
-          setOsPermissionDenied(true);
-        } else {
-          setOsPermissionDenied(false);
-        }
-      });
-      return current;
-    });
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status === 'granted') {
+      // Always clear the flag once permission is confirmed granted again,
+      // even if `enabled` is currently false — this is what lets a user who
+      // revoked-then-re-granted permission in system settings see the hint
+      // disappear on their next visit, instead of it being stuck forever
+      // because `enabled` was already flipped false by the original revoke.
+      setOsPermissionDenied(false);
+      return;
+    }
+    if (!settings.enabled) return;
+    await cancelAll();
+    const next: StoredSettings = { ...settings, enabled: false };
+    setSettings(next);
+    await persist(next);
+    setOsPermissionDenied(true);
   };
 
   const setEnabled = async (nextEnabled: boolean) => {
+    setScheduleError(false);
     if (nextEnabled) {
       try {
         await ensureAndroidChannel();
@@ -114,38 +122,37 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
           setOsPermissionDenied(true);
           return;
         }
-        const notificationId = await scheduleDaily(settings.hour, settings.minute);
-        const next: StoredSettings = { ...settings, enabled: true, notificationId };
+        await cancelAll();
+        await scheduleDaily(settings.hour, settings.minute);
+        const next: StoredSettings = { ...settings, enabled: true };
         setSettings(next);
         await persist(next);
         setOsPermissionDenied(false);
-        setScheduleError(false);
       } catch {
         setScheduleError(true);
       }
     } else {
-      await cancelExisting(settings.notificationId);
-      const next: StoredSettings = { ...settings, enabled: false, notificationId: null };
+      await cancelAll();
+      const next: StoredSettings = { ...settings, enabled: false };
       setSettings(next);
       await persist(next);
-      setScheduleError(false);
     }
   };
 
   const setTime = async (hour: number, minute: number) => {
+    setScheduleError(false);
     if (settings.enabled) {
       try {
-        await cancelExisting(settings.notificationId);
-        const notificationId = await scheduleDaily(hour, minute);
-        const next: StoredSettings = { ...settings, hour, minute, notificationId };
+        await cancelAll();
+        await scheduleDaily(hour, minute);
+        const next: StoredSettings = { ...settings, hour, minute };
         setSettings(next);
         await persist(next);
-        setScheduleError(false);
       } catch {
-        // cancelExisting already succeeded (or was a no-op), but scheduleDaily failed:
-        // the OS has nothing scheduled anymore, so honestly reflect that as disabled
-        // rather than leaving enabled: true pointing at a cancelled notificationId.
-        const next: StoredSettings = { ...settings, hour, minute, enabled: false, notificationId: null };
+        // Nothing is scheduled anymore (cancelAll already ran), so honestly
+        // reflect that as disabled rather than leaving enabled: true with
+        // nothing actually scheduled at the OS level.
+        const next: StoredSettings = { ...settings, hour, minute, enabled: false };
         setSettings(next);
         await persist(next);
         setScheduleError(true);

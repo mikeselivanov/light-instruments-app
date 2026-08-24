@@ -43,8 +43,28 @@ export default function RootLayout() {
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(() => {
       const today = nameOfTheDay();
-      router.push(`/names/${today.id}`);
+      router.navigate(`/names/${today.id}`);
     });
+
+    // getLastNotificationResponse/clearLastNotificationResponse throw a
+    // synchronous UnavailabilityError on web (expo-notifications does not
+    // implement them there — confirmed in the SDK source, and even Expo's
+    // own useLastNotificationResponse hook has this same unguarded call).
+    // This project's mandatory QA flow is `npm run web` + Playwright
+    // screenshots, so an uncaught throw here would crash the whole app on
+    // every web load. Native platforms (the only ones this API matters for)
+    // are unaffected by the try/catch.
+    try {
+      const lastResponse = Notifications.getLastNotificationResponse();
+      if (lastResponse) {
+        Notifications.clearLastNotificationResponse();
+        const today = nameOfTheDay();
+        router.navigate(`/names/${today.id}`);
+      }
+    } catch {
+      // Not available on this platform — nothing to recover from a cold start here.
+    }
+
     return () => subscription.remove();
   }, []);
 

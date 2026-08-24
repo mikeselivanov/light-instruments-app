@@ -5,6 +5,7 @@ export const colors = {
   veilRaised: '#221d2b',
   spark: '#c4923d',
   sparkSoft: '#7a5f2f',
+  sparkWash: 'rgba(196, 146, 61, 0.12)',
   thread: '#8672c2',
   threadSoft: 'rgba(134,114,194,0.14)',
   threadBorder: 'rgba(134,114,194,0.32)',
