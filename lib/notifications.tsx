@@ -102,18 +102,18 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
 
   const setEnabled = async (nextEnabled: boolean) => {
     if (nextEnabled) {
-      await ensureAndroidChannel();
-      const { status: existing } = await Notifications.getPermissionsAsync();
-      let status = existing;
-      if (status !== 'granted') {
-        const req = await Notifications.requestPermissionsAsync();
-        status = req.status;
-      }
-      if (status !== 'granted') {
-        setOsPermissionDenied(true);
-        return;
-      }
       try {
+        await ensureAndroidChannel();
+        const { status: existing } = await Notifications.getPermissionsAsync();
+        let status = existing;
+        if (status !== 'granted') {
+          const req = await Notifications.requestPermissionsAsync();
+          status = req.status;
+        }
+        if (status !== 'granted') {
+          setOsPermissionDenied(true);
+          return;
+        }
         const notificationId = await scheduleDaily(settings.hour, settings.minute);
         const next: StoredSettings = { ...settings, enabled: true, notificationId };
         setSettings(next);
@@ -142,6 +142,12 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
         await persist(next);
         setScheduleError(false);
       } catch {
+        // cancelExisting already succeeded (or was a no-op), but scheduleDaily failed:
+        // the OS has nothing scheduled anymore, so honestly reflect that as disabled
+        // rather than leaving enabled: true pointing at a cancelled notificationId.
+        const next: StoredSettings = { ...settings, hour, minute, enabled: false, notificationId: null };
+        setSettings(next);
+        await persist(next);
         setScheduleError(true);
       }
     } else {
