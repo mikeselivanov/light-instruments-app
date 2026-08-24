@@ -39,25 +39,21 @@ export default function Home() {
 
       <View style={styles.grid}>
         <Tile
-          glyph="א"
           label="Введение"
           sub="Как это устроено"
           onPress={() => router.push('/intro')}
         />
         <Tile
-          glyph="?"
           label="Случайное имя"
           sub="1 из 72"
           onPress={() => router.push(`/names/${randomNameId(today.id)}`)}
         />
         <Tile
-          glyph="◇"
           label="Категории"
           sub="По жизненным темам"
           onPress={() => router.push('/categories')}
         />
         <Tile
-          glyph="☆"
           label="Избранное"
           sub={favoriteIds.size > 0 ? `${favoriteIds.size} сохранено` : 'Пока пусто'}
           onPress={() => router.push('/favorites')}
@@ -74,13 +70,11 @@ export default function Home() {
 }
 
 function Tile({
-  glyph,
   label,
   sub,
   onPress,
   wide,
 }: {
-  glyph?: string;
   label: string;
   sub: string;
   onPress: () => void;
@@ -95,23 +89,10 @@ function Tile({
       ]}
       onPress={onPress}
     >
-      {wide ? (
-        <>
-          <View>
-            <Text style={styles.tileLabel}>{label}</Text>
-            <Text style={styles.tileSub}>{sub}</Text>
-          </View>
-          <Text style={styles.tileArrow}>→</Text>
-        </>
-      ) : (
-        <>
-          <Text style={styles.tileGlyph}>{glyph}</Text>
-          <View>
-            <Text style={styles.tileLabel}>{label}</Text>
-            <Text style={styles.tileSub}>{sub}</Text>
-          </View>
-        </>
-      )}
+      <View>
+        <Text style={styles.tileLabel}>{label}</Text>
+        <Text style={styles.tileSub}>{sub}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -196,18 +177,9 @@ const styles = StyleSheet.create({
     borderColor: colors.hairlineSoft,
     borderRadius: 14,
     padding: 16,
-    gap: 22,
   },
   tileWide: {
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  tileGlyph: {
-    fontFamily: fonts.displayHebrew,
-    fontSize: 20,
-    color: colors.spark,
   },
   tileLabel: {
     fontFamily: fonts.displayRuBold,
@@ -220,9 +192,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.parchmentDim,
     marginTop: 3,
-  },
-  tileArrow: {
-    fontSize: 16,
-    color: colors.parchmentDim,
   },
 });
