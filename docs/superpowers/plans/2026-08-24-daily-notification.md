@@ -80,7 +80,7 @@ git commit -m "Add expo-notifications dependency and Android notification icon c
 
 ---
 
-### Task 2: Статичный UI экрана «Настройки» + плитка на главном экране — ГЕЙТ СОГЛАСОВАНИЯ ДИЗАЙНА
+### Task 2: Статичный UI экрана «Настройки» + иконка-шестерёнка на главном экране — ГЕЙТ СОГЛАСОВАНИЯ ДИЗАЙНА
 
 Экран строится на локальном `useState` (заглушка), без реальной логики уведомлений — она появится в Task 4. Цель этой задачи — получить утверждённый пользователем визуальный дизайн, прежде чем писать `lib/notifications.tsx`.
 
@@ -426,7 +426,7 @@ npm run web
 
 ```bash
 git add app/settings.tsx app/index.tsx
-git commit -m "Add settings screen UI mockup and home tile (design approved)"
+git commit -m "Add settings screen UI mockup and home gear-icon entry point (design approved)"
 ```
 
 ---
