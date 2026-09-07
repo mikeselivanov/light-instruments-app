@@ -17,7 +17,6 @@ export const colors = {
 
 export const fonts = {
   displayHebrew: 'Ashurit',
-  displayRu: 'PTSerif',
   displayRuBold: 'PTSerif-Bold',
   body: 'PTSans',
   bodyBold: 'PTSans-Bold',

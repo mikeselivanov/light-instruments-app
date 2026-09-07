@@ -36,6 +36,9 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# generated web font subsets (npm run build:fonts)
+assets/fonts/web/
+
 # secrets (Google service account key, EAS local keystore credentials)
 names-of-god-*.json
 credentials.json

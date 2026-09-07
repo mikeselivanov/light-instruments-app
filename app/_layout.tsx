@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
 import { FavoritesProvider } from '../lib/favorites';
+import { fontAssets } from '../lib/fonts';
 import { NotificationSettingsProvider } from '../lib/notifications';
 import { colors } from '../lib/theme';
 import { nameOfTheDay } from '../lib/data';
@@ -24,13 +25,7 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    PTSerif: require('../assets/fonts/PTSerif-Regular.ttf'),
-    'PTSerif-Bold': require('../assets/fonts/PTSerif-Bold.ttf'),
-    PTSans: require('../assets/fonts/PTSans-Regular.ttf'),
-    'PTSans-Bold': require('../assets/fonts/PTSans-Bold.ttf'),
-    Ashurit: require('../assets/fonts/Ashurit.ttf'),
-  });
+  const [fontsLoaded] = useFonts(fontAssets);
 
   const onLayout = useCallback(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
