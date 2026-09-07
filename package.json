@@ -35,6 +35,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "test": "node --test 'server/**/*.test.mjs'",
     "build:fonts": "node scripts/build-fonts.mjs",
     "build:icons": "node scripts/build-icons.mjs",
     "build:web": "npm run build:fonts && npm run build:icons && expo export -p web && workbox injectManifest workbox-config.js",
