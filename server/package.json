@@ -1,0 +1,10 @@
+{
+  "name": "72names-push",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Daily name-of-the-day push service. Runs on the VPS, not bundled into the app.",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

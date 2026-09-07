@@ -1,0 +1,23 @@
+[Unit]
+Description=72 Imeni Boga daily push service
+After=network.target
+
+[Service]
+Type=simple
+User=72names
+Group=72names
+WorkingDirectory=/opt/72names
+ExecStart=/usr/bin/node /opt/72names/index.mjs
+EnvironmentFile=/etc/72names/env
+Restart=always
+RestartSec=5
+
+# The service needs nothing outside its own data directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/72names
+
+[Install]
+WantedBy=multi-user.target
