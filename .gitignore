@@ -39,6 +39,13 @@ yarn-error.*
 # generated web font subsets (npm run build:fonts)
 assets/fonts/web/
 
+# third-party agent skill packs, installed per-machine and duplicated across
+# .agents/ (other agents) and .claude/skills/ (Claude Code). Tooling, not app
+# code — .claude/settings.json stays tracked.
+.agents/
+.claude/skills/
+skills-lock.json
+
 # push service: node_modules, the names copy deploy.sh drops next to it
 # (the original lives in assets/data/), the local sqlite file and secrets
 server/node_modules/
