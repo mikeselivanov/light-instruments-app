@@ -95,6 +95,18 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
       setScheduleError(true);
       return;
     }
+    if (!VAPID_PUBLIC_KEY) {
+      // A build-time misconfiguration, not something the user can act on, so
+      // it goes to the console rather than the UI. Expo only inlines env vars
+      // prefixed EXPO_PUBLIC_, so a .env holding plain VAPID_PUBLIC_KEY leaves
+      // this empty and pushManager.subscribe() fails with something cryptic.
+      console.error(
+        'EXPO_PUBLIC_VAPID_PUBLIC_KEY is empty — check .env and rebuild. ' +
+          'The EXPO_PUBLIC_ prefix is required; Expo ignores env vars without it.'
+      );
+      setScheduleError(true);
+      return;
+    }
 
     try {
       // Called straight off the user's tap: iOS only grants permission in
