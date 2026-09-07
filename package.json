@@ -27,7 +27,8 @@
     "babel-preset-expo": "~54.0.10",
     "pngjs": "^7.0.0",
     "subset-font": "^2.7.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "workbox-cli": "^7.4.1"
   },
   "scripts": {
     "start": "expo start",
@@ -35,7 +36,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:fonts": "node scripts/build-fonts.mjs",
-    "build:icons": "node scripts/build-icons.mjs"
+    "build:icons": "node scripts/build-icons.mjs",
+    "build:web": "npm run build:fonts && npm run build:icons && expo export -p web && workbox injectManifest workbox-config.js"
   },
   "private": true
 }
