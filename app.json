@@ -23,7 +23,9 @@
       "versionCode": 16
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "lang": "ru"
     },
     "extra": {
       "eas": {
