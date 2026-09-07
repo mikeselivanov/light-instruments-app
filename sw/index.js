@@ -78,3 +78,48 @@ self.addEventListener('fetch', (event) => {
     })()
   );
 });
+
+self.addEventListener('push', (event) => {
+  // A push with no readable payload still has to show something: on iOS a
+  // silent push burns the app's budget and can get delivery throttled.
+  let payload = { title: 'Имя дня', body: 'Откройте, чтобы узнать', url: '/' };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {
+    // Keep the fallback.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'name-of-the-day',
+      data: { url: payload.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = event.notification.data?.url ?? '/';
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+      for (const client of clientList) {
+        if ('focus' in client) {
+          await client.focus();
+          // The app is a SPA, so navigate() moves the existing window instead
+          // of opening a second copy.
+          if ('navigate' in client) await client.navigate(target);
+          return;
+        }
+      }
+      await self.clients.openWindow(target);
+    })()
+  );
+});
