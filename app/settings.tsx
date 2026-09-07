@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
@@ -22,16 +22,32 @@ export default function Settings() {
     isLoaded,
     osPermissionDenied,
     scheduleError,
+    installRequired,
     setEnabled,
     setTime,
     recheckPermission,
   } = useNotificationSettings();
 
-  const hint = osPermissionDenied
-    ? { text: 'Уведомления выключены в настройках телефона. Нажмите, чтобы открыть системные настройки приложения и включить их.', tappable: true }
-    : scheduleError
-      ? { text: 'Не удалось включить уведомления, попробуйте ещё раз.', tappable: false }
-      : null;
+  // installRequired outranks the rest: on iOS the Push API is absent until the
+  // app is on the Home Screen, so every other message would be misleading.
+  const hint = installRequired
+    ? {
+        text: 'Чтобы получать уведомления, добавьте приложение на домашний экран: «Поделиться» → «На экран „Домой“».',
+        tappable: false,
+      }
+    : osPermissionDenied
+      ? {
+          text:
+            Platform.OS === 'web'
+              ? 'Уведомления запрещены в настройках браузера для этого сайта. Разрешите их и вернитесь сюда.'
+              : 'Уведомления выключены в настройках телефона. Нажмите, чтобы открыть системные настройки приложения и включить их.',
+          // Linking.openSettings() does not exist on web, so tapping would be
+          // a dead button there.
+          tappable: Platform.OS !== 'web',
+        }
+      : scheduleError
+        ? { text: 'Не удалось включить уведомления, попробуйте ещё раз.', tappable: false }
+        : null;
 
   useFocusEffect(
     useCallback(() => {
@@ -54,7 +70,7 @@ export default function Settings() {
         <Switch
           value={enabled}
           onValueChange={setEnabled}
-          disabled={!isLoaded}
+          disabled={!isLoaded || installRequired}
           trackColor={{ false: colors.hairline, true: colors.sparkSoft }}
           thumbColor={enabled ? colors.spark : colors.parchmentDim}
         />

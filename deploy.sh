@@ -22,4 +22,13 @@ echo "==> Uploading to ${USER}@${HOST}:${TARGET}"
 # bundles accumulate forever.
 rsync -avz --delete dist/ "${USER}@${HOST}:${TARGET}/"
 
+echo "==> Deploying push service"
+# The service reads the very same data file the app bundles, so there is only
+# ever one source of truth for the names.
+cp assets/data/names.ru.json server/names.ru.json
+rsync -avz --delete \
+    --exclude node_modules --exclude '*.test.mjs' \
+    server/ "${USER}@${HOST}:/opt/72names/"
+ssh "${USER}@${HOST}" 'cd /opt/72names && npm install --omit=dev && systemctl restart 72names-push'
+
 echo "==> Done: https://${HOST}"
