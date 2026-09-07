@@ -28,9 +28,17 @@ const WHEEL_PADDING = ITEM_HEIGHT; // one empty row above/below so edge values c
 // with CSS instead — without it the scroll comes to rest between rows and the
 // selected value sits half outside the highlight. These properties are not in
 // React Native's style types, hence the cast and living outside StyleSheet.
+// `center`, not `start`. The content is padded by one row top and bottom so
+// the selected value sits in the middle of three, which means the code reads
+// the selection as scrollTop / ITEM_HEIGHT. Under `start` the browser snaps
+// row N's top edge to the viewport top, putting its snap points one row
+// higher — and the snap point for the first row lands at ITEM_HEIGHT, not 0,
+// so the first value (00) could never be committed at all. `center` puts the
+// snap points exactly on N * ITEM_HEIGHT, which is the coordinate system the
+// rest of this component already uses.
 const webWheel = {
   scroll: { scrollSnapType: 'y mandatory' } as unknown as ViewStyle,
-  row: { scrollSnapAlign: 'start' } as unknown as ViewStyle,
+  row: { scrollSnapAlign: 'center' } as unknown as ViewStyle,
 };
 
 export default function Settings() {
@@ -147,14 +155,20 @@ function TimeWheel({
 }) {
   const scrollRef = useRef<ScrollView>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Bumped on every commit so the sync effect below re-runs even when the
-  // parent rejects the change and `value` therefore stays put.
+  // Where the wheel is physically parked. Lets the sync effect tell "the
+  // parent accepted, we are already there" from "the parent rejected, scroll
+  // back" — without it the effect re-scrolls after every commit and fights
+  // the browser's own snap animation, which is what made it feel stuttery.
+  const parkedIndex = useRef<number | null>(null);
+  // Bumped on every commit so the sync effect re-runs even when the parent
+  // rejects the change and `value` therefore stays put.
   const [syncNonce, setSyncNonce] = useState(0);
 
   const commitOffset = (y: number) => {
     const index = Math.round(y / ITEM_HEIGHT);
     const clamped = Math.max(0, Math.min(values.length - 1, index));
     if (values[clamped] === value) return;
+    parkedIndex.current = clamped;
     onChange(values[clamped]);
     setSyncNonce((n) => n + 1);
   };
@@ -185,7 +199,11 @@ function TimeWheel({
   // it showing a time the app did not accept.
   useLayoutEffect(() => {
     const index = Math.max(0, values.indexOf(value));
+    // Already parked there — either the mount position or a commit the parent
+    // accepted. Scrolling again would only interrupt the browser mid-snap.
+    if (parkedIndex.current === index) return;
     scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+    parkedIndex.current = index;
   }, [value, values, syncNonce]);
 
   return (

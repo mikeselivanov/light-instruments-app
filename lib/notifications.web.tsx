@@ -130,22 +130,29 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
   const setTime = async (hour: number, minute: number) => {
     setScheduleError(false);
     if (settings.enabled) {
+      // Show the new time immediately and reconcile afterwards. Awaiting the
+      // round-trip before updating state left the wheel's selection lagging
+      // behind the scroll by however long the network took, which read as a
+      // stutter rather than as loading.
+      const previous = settings;
+      const optimistic = { ...settings, hour, minute };
+      setSettings(optimistic);
+      await persist(optimistic);
       try {
         const subscription = await getSubscription();
         if (!subscription) throw new Error('no subscription');
         await sendSubscription(subscription, hour, minute);
-        const next = { ...settings, hour, minute };
-        setSettings(next);
-        await persist(next);
       } catch {
-        // Deliberately keeps the old time and stays enabled. Unlike native —
-        // where setTime cancels the existing schedule first, so a failure
-        // really does leave nothing scheduled — a failed POST here means the
-        // server still holds the previous time and is still sending. Flipping
-        // the toggle off would show "off" while notifications kept arriving,
-        // and storing the new time would show a time nothing is scheduled at.
-        // Leaving state untouched is what actually matches the server; the
-        // wheel springs back to the old value and the error explains why.
+        // Roll back to the old time, and stay enabled. Unlike native — where
+        // setTime cancels the existing schedule first, so a failure really
+        // does leave nothing scheduled — a failed POST here means the server
+        // still holds the previous time and is still sending. Turning the
+        // toggle off would show "off" while notifications kept arriving, and
+        // keeping the new time would show a time nothing is scheduled at.
+        // Rolling back is what actually matches the server; the wheel springs
+        // back with it and the error explains why.
+        setSettings(previous);
+        await persist(previous);
         setScheduleError(true);
       }
     } else {
