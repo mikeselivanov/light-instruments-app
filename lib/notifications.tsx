@@ -27,6 +27,10 @@ type NotificationSettingsContextValue = {
   isLoaded: boolean;
   osPermissionDenied: boolean;
   scheduleError: boolean;
+  // Always false on native — the app is installed by definition. The web
+  // build overrides this whole module (notifications.web.tsx), where it means
+  // "iOS, and Push is unavailable until the app is on the Home Screen".
+  installRequired: boolean;
   setEnabled: (enabled: boolean) => Promise<void>;
   setTime: (hour: number, minute: number) => Promise<void>;
   recheckPermission: () => Promise<void>;
@@ -172,6 +176,7 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
       isLoaded,
       osPermissionDenied,
       scheduleError,
+      installRequired: false,
       setEnabled,
       setTime,
       recheckPermission,
