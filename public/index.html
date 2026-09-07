@@ -23,10 +23,30 @@
         flex: 1;
       }
     </style>
+    <style>
+      /* Expo's reset above sets height and overflow but no background, so the
+         page defaults to white. That shows up in two places on iOS: as a white
+         flash before React mounts, and as a white status bar area in the
+         installed app, since iOS colours that from the page background. The
+         app's own dark ground is painted by a View inside React, far too late
+         for either. */
+      html,
+      body {
+        background-color: #0e0d12;
+        /* Tells the browser this is a dark page, so scrollbars, form controls
+           and overscroll areas match instead of rendering light. */
+        color-scheme: dark;
+      }
+    </style>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0e0d12" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- "black", not "black-translucent": translucent makes the web view
+         extend underneath the status bar, and compensating for that needs
+         viewport-fit=cover plus real safe-area insets. Expo's viewport meta
+         has no viewport-fit, so env(safe-area-inset-top) resolves to 0 and
+         the date row would sit under the clock with nothing to push it down. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="72 Имени" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <script>
