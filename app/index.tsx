@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { HebrewGlyphs } from '../components/HebrewGlyphs';
+import { InstallBanner } from '../components/InstallBanner';
 import { useFavorites } from '../lib/favorites';
 import { nameOfTheDay, randomNameId } from '../lib/data';
 import { colors, fonts } from '../lib/theme';
@@ -31,6 +32,8 @@ export default function Home() {
           <Ionicons name="settings-outline" size={20} color={colors.parchmentDim} />
         </Pressable>
       </View>
+
+      <InstallBanner />
 
       <Pressable
         style={({ pressed }) => [styles.dayCard, pressed && styles.pressed]}
