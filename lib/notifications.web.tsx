@@ -138,11 +138,14 @@ export function NotificationSettingsProvider({ children }: { children: ReactNode
         setSettings(next);
         await persist(next);
       } catch {
-        // Nothing is scheduled server-side at the new time, so reflect that
-        // honestly rather than leaving enabled: true over nothing.
-        const next = { ...settings, hour, minute, enabled: false };
-        setSettings(next);
-        await persist(next);
+        // Deliberately keeps the old time and stays enabled. Unlike native —
+        // where setTime cancels the existing schedule first, so a failure
+        // really does leave nothing scheduled — a failed POST here means the
+        // server still holds the previous time and is still sending. Flipping
+        // the toggle off would show "off" while notifications kept arriving,
+        // and storing the new time would show a time nothing is scheduled at.
+        // Leaving state untouched is what actually matches the server; the
+        // wheel springs back to the old value and the error explains why.
         setScheduleError(true);
       }
     } else {

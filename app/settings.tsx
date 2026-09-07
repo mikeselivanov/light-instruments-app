@@ -1,5 +1,16 @@
-import { useCallback, useLayoutEffect, useRef } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type ViewStyle,
+} from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
@@ -12,6 +23,15 @@ const ITEM_HEIGHT = 44;
 const VISIBLE_ROWS = 3;
 const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
 const WHEEL_PADDING = ITEM_HEIGHT; // one empty row above/below so edge values can reach center
+
+// Web-only. react-native-web ignores snapToInterval, so the wheel is snapped
+// with CSS instead — without it the scroll comes to rest between rows and the
+// selected value sits half outside the highlight. These properties are not in
+// React Native's style types, hence the cast and living outside StyleSheet.
+const webWheel = {
+  scroll: { scrollSnapType: 'y mandatory' } as unknown as ViewStyle,
+  row: { scrollSnapAlign: 'start' } as unknown as ViewStyle,
+};
 
 export default function Settings() {
   const insets = useSafeAreaInsets();
@@ -126,37 +146,70 @@ function TimeWheel({
   values: number[];
 }) {
   const scrollRef = useRef<ScrollView>(null);
-  // Sentinel `null` forces the very first layout effect run to scroll too —
-  // ScrollView otherwise mounts scrolled to 0, not to `value`'s position.
-  const lastScrolledValue = useRef<number | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped on every commit so the sync effect below re-runs even when the
+  // parent rejects the change and `value` therefore stays put.
+  const [syncNonce, setSyncNonce] = useState(0);
 
+  const commitOffset = (y: number) => {
+    const index = Math.round(y / ITEM_HEIGHT);
+    const clamped = Math.max(0, Math.min(values.length - 1, index));
+    if (values[clamped] === value) return;
+    onChange(values[clamped]);
+    setSyncNonce((n) => n + 1);
+  };
+
+  useEffect(
+    () => () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    },
+    []
+  );
+
+  // react-native-web never emits onMomentumScrollEnd — the web has no notion
+  // of momentum ending — so on web the wheel settles by debouncing onScroll
+  // instead. Without this the value simply never changes when scrolled.
+  const handleScroll =
+    Platform.OS === 'web'
+      ? (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const y = event.nativeEvent.contentOffset.y;
+          if (settleTimer.current) clearTimeout(settleTimer.current);
+          settleTimer.current = setTimeout(() => commitOffset(y), 180);
+        }
+      : undefined;
+
+  // Keeps the scroll position on whatever `value` actually is. It runs on
+  // mount (ScrollView otherwise starts at 0, not at `value`), whenever the
+  // parent accepts a new value, and — via syncNonce — after a commit the
+  // parent rejected, which is what springs the wheel back instead of leaving
+  // it showing a time the app did not accept.
   useLayoutEffect(() => {
-    if (value !== lastScrolledValue.current) {
-      const index = Math.max(0, values.indexOf(value));
-      scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
-      lastScrolledValue.current = value;
-    }
-  }, [value, values]);
+    const index = Math.max(0, values.indexOf(value));
+    scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+  }, [value, values, syncNonce]);
 
   return (
     <View style={styles.wheel}>
       <View pointerEvents="none" style={styles.wheelHighlight} />
       <ScrollView
         ref={scrollRef}
-        style={{ height: WHEEL_HEIGHT }}
+        // snapToInterval is a native-only prop: react-native-web does not turn
+        // it into CSS scroll snapping, so the web wheel needs the CSS itself
+        // or it comes to rest between rows.
+        style={[{ height: WHEEL_HEIGHT }, Platform.OS === 'web' && webWheel.scroll]}
         contentContainerStyle={{ paddingVertical: WHEEL_PADDING }}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-          const clamped = Math.max(0, Math.min(values.length - 1, index));
-          lastScrolledValue.current = values[clamped];
-          onChange(values[clamped]);
-        }}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        onMomentumScrollEnd={(e) => commitOffset(e.nativeEvent.contentOffset.y)}
       >
         {values.map((v) => (
-          <View key={v} style={styles.wheelRow}>
+          <View
+            key={v}
+            style={[styles.wheelRow, Platform.OS === 'web' && webWheel.row]}
+          >
             <Text style={[styles.wheelValue, v === value && styles.wheelValueActive]}>
               {String(v).padStart(2, '0')}
             </Text>
