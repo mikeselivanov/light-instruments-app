@@ -169,7 +169,11 @@ function SetupView({
       <IconButton icon="arrow-back-outline" label="Назад" onPress={onBack} style={styles.back} />
 
       <View style={[styles.preview, background === 'day' && styles.previewDay]}>
-        <Glyph transliteration={letter.transliteration} size={112} color={colors.spark} />
+        <Glyph
+          transliteration={letter.transliteration}
+          size={112}
+          color={background === 'day' ? colors.dayInk : colors.spark}
+        />
       </View>
 
       <Text style={styles.letterName}>{letter.name}</Text>
