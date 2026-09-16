@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Glyph } from '../../components/Glyph';
 import { HomeButton } from '../../components/HomeButton';
 import { IconButton } from '../../components/IconButton';
+import { Pill, StartButton } from '../../components/PracticeControls';
 import { ScreenTransition } from '../../components/ScreenTransition';
 import { tappable, selectableText } from '../../lib/interaction';
 import { ALPHABET, ALPHABET_SOURCE, type Letter } from '../../lib/letters';
@@ -199,41 +200,8 @@ function SetupView({
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Начать"
-        onPress={onStart}
-        style={({ pressed }) => [styles.startBtn, tappable, pressed && styles.startBtnPressed]}
-      >
-        <Text style={styles.startBtnText}>Начать</Text>
-      </Pressable>
+      <StartButton label="Начать" onPress={onStart} />
     </ScrollView>
-  );
-}
-
-function Pill({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.pill,
-        selected && styles.pillSelected,
-        tappable,
-        pressed && styles.pillPressed,
-      ]}
-    >
-      <Text style={[styles.pillText, selected && styles.pillTextSelected]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -344,14 +312,7 @@ function DoneView({ onRestart }: { onRestart: () => void }) {
     <View style={[styles.doneScreen, padding]}>
       <View style={styles.doneContent}>
         <Text style={styles.doneTitle}>Сессия завершена</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="К буквам"
-          onPress={onRestart}
-          style={({ pressed }) => [styles.startBtn, tappable, pressed && styles.startBtnPressed]}
-        >
-          <Text style={styles.startBtnText}>К буквам</Text>
-        </Pressable>
+        <StartButton label="К буквам" onPress={onRestart} />
       </View>
     </View>
   );
@@ -459,46 +420,6 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     gap: 10,
-  },
-  pill: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 100,
-    backgroundColor: colors.veil,
-    borderWidth: 1,
-    borderColor: colors.hairlineSoft,
-  },
-  pillPressed: {
-    backgroundColor: colors.veilRaised,
-  },
-  pillSelected: {
-    backgroundColor: colors.sparkWash,
-    borderColor: colors.sparkSoft,
-  },
-  pillText: {
-    fontFamily: fonts.body,
-    ...type.button,
-    color: colors.parchmentDim,
-  },
-  pillTextSelected: {
-    color: colors.spark,
-  },
-  startBtn: {
-    width: '100%',
-    borderRadius: 100,
-    paddingVertical: 15,
-    backgroundColor: colors.spark,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  startBtnPressed: {
-    opacity: 0.85,
-  },
-  startBtnText: {
-    fontFamily: fonts.bodyBold,
-    ...type.button,
-    fontWeight: '700',
-    color: colors.void,
   },
   runScreen: {
     flex: 1,
