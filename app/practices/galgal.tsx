@@ -321,10 +321,11 @@ function RunView({
   return (
     <View style={styles.runScreen}>
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Следующая пара"
-        // With a pace set, the timer owns the sequence; touching does nothing
-        // rather than racing it.
+        // With a pace set the timer owns the sequence, so the surface stops
+        // being a control at all — no role, no label, nothing for a screen
+        // reader to offer that would do nothing when taken up.
+        accessibilityRole={pace ? undefined : 'button'}
+        accessibilityLabel={pace ? undefined : 'Следующая пара'}
         onPress={pace ? undefined : advance}
         style={[styles.runField, tappable]}
       >
