@@ -69,3 +69,6 @@ credentials/
 # generated native folders
 /ios
 /android
+
+# subagent-driven-development scratch (ledger, briefs, review packages)
+.superpowers/
