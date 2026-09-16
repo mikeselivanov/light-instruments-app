@@ -6,7 +6,26 @@ import { colors, fonts } from '../lib/theme';
 type Props = {
   letters: readonly string[];
   variant: 'compact' | 'display';
+  /** Glyph size for the 'compact' variant only; 'display' has one fixed size. */
+  size?: number;
+  /**
+   * Dot size as a fraction of the glyph, for the 'compact' variant.
+   *
+   * Defaults to the list-row setting, where the dot is nearly as tall as the
+   * letters because at 19pt anything smaller disappears. The table of all 72
+   * passes the display variant's much finer ratio instead: eight columns across
+   * a phone leave about 43pt per name, and a dot of the list-row proportion
+   * eats a third of the letters' width to say something the reader of a chart
+   * already knows.
+   */
+  dotRatio?: number;
 };
+
+/** The compact size every other measurement in that variant is a fraction of. */
+const COMPACT_GLYPH = 19;
+
+/** The list-row dot, as a fraction of its glyph: 14pt against 19pt letters. */
+const COMPACT_DOT_RATIO = 14 / 19;
 
 /**
  * How big the letters are and how tightly they sit.
@@ -35,8 +54,12 @@ const DISPLAY = {
 /** Caption tracking, as a fraction of its own size. */
 const CAPTION_TRACKING = 0.04;
 
-/** The separator dot's size, as a fraction of the letters' size. */
-const DOT_SIZE = 0.25;
+/**
+ * The separator dot's size, as a fraction of the letters' size, where the name
+ * is the focus of the screen. Exported because the table of all 72 borrows it:
+ * its cells are compact, but at that width they need this finer dot.
+ */
+export const DISPLAY_DOT_RATIO = 0.25;
 
 /**
  * How far the dot is nudged down, as a fraction of the letters' size, so that
@@ -46,7 +69,7 @@ const DOT_SIZE = 0.25;
  * Derived rather than dialled in by eye: the letters' baseline falls 0.960em
  * below the top of their line box and the median letter stands 0.649em tall,
  * putting the centre of the letter bodies 0.636em down; the dot's own ink
- * centre already sits 0.722em below the top of its box, scaled by DOT_SIZE.
+ * centre already sits 0.722em below the top of its box, scaled by that ratio.
  * The difference is what is left to travel. Both terms scale with the letter
  * size, so the one fraction serves every size.
  */
@@ -75,18 +98,42 @@ const GLYPH_BOX_DESCENT = 0.41;
 // `letters` is not fixed at three: this component also renders the two-letter
 // gates of the Galgal wheel, and the last entry — whatever the array's length
 // — is the one that takes the word-final glyph form.
-export function HebrewGlyphs({ letters, variant }: Props) {
+export function HebrewGlyphs({ letters, variant, size, dotRatio }: Props) {
   // The middle dot belongs to how the name is written and is never optional —
   // it is what marks the three letters as read one by one rather than as a
-  // word, the traditional way to show that in Hebrew typesetting. It appears
-  // in both variants; what changes with size is only how much room it takes.
+  // word, the traditional way to show that in Hebrew typesetting. It appears in
+  // both variants and in the table; what changes is only how much room it takes
+  // (see `dotRatio`).
   if (variant === 'compact') {
+    // Every measurement below is a fraction of the glyph size, taken from the
+    // list-row setting that was tuned by eye — so the block keeps its
+    // proportions when the table of all 72 names asks for a smaller one.
+    const glyph = size ?? COMPACT_GLYPH;
+    const scale = glyph / COMPACT_GLYPH;
+    const dot = glyph * (dotRatio ?? COMPACT_DOT_RATIO);
+
     return (
-      <View style={styles.compactRow}>
+      <View style={[styles.compactRow, { gap: 2 * scale }]}>
         {letters.map((letter, i) => (
           <Fragment key={i}>
-            <Text style={styles.compactGlyph}>{glyphFor(letter, i === letters.length - 1)}</Text>
-            {i < letters.length - 1 && <Text style={styles.compactDot}>·</Text>}
+            <Text
+              style={[
+                styles.compactGlyph,
+                { fontSize: glyph, paddingHorizontal: 2 * scale },
+              ]}
+            >
+              {glyphFor(letter, i === letters.length - 1)}
+            </Text>
+            {i < letters.length - 1 && (
+              <Text
+                style={[
+                  styles.compactDot,
+                  { fontSize: dot, transform: [{ translateY: -4 * scale }] },
+                ]}
+              >
+                ·
+              </Text>
+            )}
           </Fragment>
         ))}
       </View>
@@ -126,7 +173,7 @@ export function HebrewGlyphs({ letters, variant }: Props) {
               style={[
                 styles.displayDot,
                 {
-                  fontSize: glyph * DOT_SIZE,
+                  fontSize: glyph * DISPLAY_DOT_RATIO,
                   transform: [{ translateY: glyph * DOT_DROP }],
                 },
               ]}

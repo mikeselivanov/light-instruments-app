@@ -88,10 +88,14 @@ export default function Home() {
             onPress={() => router.replace('/favorites')}
           />
           <Tile
-            wide
             label="Все имена"
             sub="Полный список, 72"
             onPress={() => router.replace('/names')}
+          />
+          <Tile
+            label="Таблица имён"
+            sub="Все 72 на одном экране"
+            onPress={() => router.replace('/names/table')}
           />
         </View>
 
@@ -138,6 +142,10 @@ function Tile({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
+      // Without this the tile reads out as its two stacked strings and offers
+      // no role at all — these tiles are the app's main navigation.
+      accessibilityLabel={label}
       style={({ pressed }) => [
         styles.tile,
         tappable,
