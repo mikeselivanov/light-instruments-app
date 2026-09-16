@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { HebrewGlyphs } from '../components/HebrewGlyphs';
 import { InstallBanner } from '../components/InstallBanner';
+import { PracticeRow } from '../components/PracticeRow';
 import { useFavorites } from '../lib/favorites';
 import { tappable } from '../lib/interaction';
 import { useScreenPadding } from '../lib/safe-area';
@@ -91,6 +92,32 @@ export default function Home() {
             label="Все имена"
             sub="Полный список, 72"
             onPress={() => router.replace('/names')}
+          />
+        </View>
+
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>Практики</Text>
+          <View style={styles.sectionRule} />
+        </View>
+
+        <View style={styles.practices}>
+          <PracticeRow
+            transliteration="ЙУД"
+            label="Дыхание"
+            sub="Тетраграмматон, в своём ритме"
+            onPress={() => router.replace('/practices/breathing')}
+          />
+          <PracticeRow
+            transliteration="АЛЕФ"
+            label="Созерцание буквы"
+            sub="22 буквы, 3–5 минут"
+            onPress={() => router.replace('/practices/letter')}
+          />
+          <PracticeRow
+            transliteration="ШИН"
+            label="Колесо Галгал"
+            sub="231 врата, круг за кругом"
+            onPress={() => router.replace('/practices/galgal')}
           />
         </View>
       </ScrollView>
@@ -212,6 +239,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  sectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionLabelText: {
+    fontFamily: fonts.body,
+    ...type.eyebrow,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    color: colors.spark,
+  },
+  sectionRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.hairline,
+  },
+  practices: {
+    gap: 9,
   },
   tile: {
     width: '48%',
