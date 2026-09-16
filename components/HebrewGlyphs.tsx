@@ -4,7 +4,7 @@ import { descentOf, glyphFor } from '../lib/hebrew';
 import { colors, fonts } from '../lib/theme';
 
 type Props = {
-  letters: [string, string, string];
+  letters: readonly string[];
   variant: 'compact' | 'display';
 };
 
@@ -71,6 +71,10 @@ const GLYPH_BOX_DESCENT = 0.41;
 // deliberately one display size: the name-of-the-day card and the detail
 // screen used to render it at 88 and 112pt, and seeing the same name at two
 // sizes one tap apart read as an inconsistency rather than as hierarchy.
+//
+// `letters` is not fixed at three: this component also renders the two-letter
+// gates of the Galgal wheel, and the last entry — whatever the array's length
+// — is the one that takes the word-final glyph form.
 export function HebrewGlyphs({ letters, variant }: Props) {
   // The middle dot belongs to how the name is written and is never optional —
   // it is what marks the three letters as read one by one rather than as a

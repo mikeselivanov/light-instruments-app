@@ -13,6 +13,10 @@ export const colors = {
   parchmentDim: '#9c9284',
   hairline: '#2e2836',
   hairlineSoft: '#241f2c',
+  // Дневной режим созерцания буквы — не тема приложения, а принадлежность
+  // одного экрана: светлый фон и чёрная буква как в печатной книге.
+  dayGround: '#efe9dd',
+  dayInk: '#16130f',
 } as const;
 
 export const fonts = {
