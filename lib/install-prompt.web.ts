@@ -15,6 +15,17 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
+// Parked by the inline script in public/index.html, which is listening long
+// before this module is even downloaded.
+type WindowWithParkedPrompt = Window & {
+  __installPromptEvent?: BeforeInstallPromptEvent | null;
+};
+
+function parkedPrompt(): BeforeInstallPromptEvent | null {
+  if (typeof window === 'undefined') return null;
+  return (window as WindowWithParkedPrompt).__installPromptEvent ?? null;
+}
+
 function detectIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   // iPadOS 13+ reports a Mac user agent, so it is identified by the touch
@@ -51,18 +62,27 @@ export function useInstallPrompt(): InstallPrompt {
     setDismissed(readDismissed());
     setIsInstalled(detectInstalled());
 
+    // Chrome fires beforeinstallprompt once and does not replay it, and it
+    // routinely fires before this component exists: the whole app is gated
+    // behind expo-font in the root layout, so nothing React-side is listening
+    // for the first second or so of a cold load. index.html catches it for us.
+    setDeferred(parkedPrompt());
+
     const onBeforeInstall = (event: Event) => {
       // Suppress Chrome's own banner in favour of ours — the native one is
       // easy to miss.
       event.preventDefault();
       setDeferred(event as BeforeInstallPromptEvent);
     };
+    const onParked = () => setDeferred(parkedPrompt());
     const onInstalled = () => setIsInstalled(true);
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('installpromptready', onParked);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('installpromptready', onParked);
       window.removeEventListener('appinstalled', onInstalled);
     };
   }, []);
@@ -88,6 +108,9 @@ export function useInstallPrompt(): InstallPrompt {
       if (!deferred) return;
       await deferred.prompt();
       await deferred.userChoice;
+      // The event is single-use: clear the parked copy too, or a later mount
+      // would pick up a spent one and offer a button that does nothing.
+      (window as WindowWithParkedPrompt).__installPromptEvent = null;
       setDeferred(null);
       dismiss();
     },

@@ -2,7 +2,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { HebrewGlyphs } from './HebrewGlyphs';
 import { useFavorites } from '../lib/favorites';
-import { colors, fonts } from '../lib/theme';
+import { tappable } from '../lib/interaction';
+import { colors, fonts, type } from '../lib/theme';
 import type { DivineName } from '../lib/data';
 
 export function NameRow({ name }: { name: DivineName }) {
@@ -11,8 +12,8 @@ export function NameRow({ name }: { name: DivineName }) {
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-      onPress={() => router.push(`/names/${name.id}`)}
+      style={({ pressed }) => [styles.row, tappable, pressed && styles.rowPressed]}
+      onPress={() => router.replace(`/names/${name.id}`)}
     >
       <Text style={styles.num}>{String(name.id).padStart(2, '0')}</Text>
       <HebrewGlyphs letters={name.hebrewLetters} variant="compact" />
@@ -25,9 +26,14 @@ export function NameRow({ name }: { name: DivineName }) {
         </Text>
       </View>
       <Pressable
-        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={favorite ? 'Убрать из избранного' : 'В избранное'}
+        // The glyph itself is a ~20pt target sitting inside a row that is also
+        // pressable, so it needs slop on every side to be reliably hittable
+        // without the row swallowing the tap.
+        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         onPress={() => toggleFavorite(name.id)}
-        style={styles.starHit}
+        style={({ pressed }) => [styles.starHit, tappable, pressed && styles.starPressed]}
       >
         <Text style={[styles.star, favorite && styles.starFilled]}>
           {favorite ? '★' : '☆'}
@@ -42,7 +48,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairlineSoft,
@@ -52,9 +58,9 @@ const styles = StyleSheet.create({
   },
   num: {
     fontFamily: fonts.body,
-    fontSize: 11,
+    ...type.small,
     color: colors.parchmentDim,
-    width: 18,
+    width: 20,
   },
   info: {
     flex: 1,
@@ -62,21 +68,23 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 14.5,
-    lineHeight: 18,
+    ...type.rowTitle,
     color: colors.parchment,
   },
   tag: {
     fontFamily: fonts.body,
-    fontSize: 11,
+    ...type.small,
     color: colors.parchmentDim,
     marginTop: 2,
   },
   starHit: {
     paddingLeft: 6,
   },
+  starPressed: {
+    opacity: 0.5,
+  },
   star: {
-    fontSize: 17,
+    fontSize: 20,
     color: colors.hairlineSoft,
   },
   starFilled: {

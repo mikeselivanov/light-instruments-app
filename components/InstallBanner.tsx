@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useInstallPrompt } from '../lib/install-prompt';
-import { colors, fonts } from '../lib/theme';
+import { tappable } from '../lib/interaction';
+import { colors, fonts, type } from '../lib/theme';
 
 export function InstallBanner() {
   const { canPrompt, isIOS, promptInstall, dismiss } = useInstallPrompt();
@@ -22,12 +23,19 @@ export function InstallBanner() {
       {!isIOS && (
         <Pressable
           onPress={promptInstall}
-          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.action, tappable, pressed && styles.pressed]}
         >
           <Text style={styles.actionText}>Установить</Text>
         </Pressable>
       )}
-      <Pressable onPress={dismiss} style={styles.close} hitSlop={12}>
+      <Pressable
+        onPress={dismiss}
+        accessibilityRole="button"
+        accessibilityLabel="Скрыть"
+        hitSlop={12}
+        style={({ pressed }) => [styles.close, tappable, pressed && styles.pressed]}
+      >
         <Text style={styles.closeText}>✕</Text>
       </Pressable>
     </View>
@@ -56,14 +64,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 15,
+    ...type.rowTitle,
     color: colors.parchment,
   },
   body: {
     fontFamily: fonts.body,
-    fontSize: 13,
+    ...type.small,
     color: colors.parchmentDim,
-    lineHeight: 18,
   },
   action: {
     backgroundColor: colors.sparkWash,
@@ -75,7 +82,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 13,
+    ...type.button,
     color: colors.spark,
   },
   close: {
@@ -83,7 +90,7 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontFamily: fonts.body,
-    fontSize: 16,
+    fontSize: 18,
     color: colors.parchmentDim,
   },
 });

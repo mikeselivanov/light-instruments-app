@@ -1,47 +1,46 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { HomeButton } from '../components/HomeButton';
 import { NameRow } from '../components/NameRow';
+import { useScreenPadding } from '../lib/safe-area';
 import { useFavorites } from '../lib/favorites';
 import { NAMES } from '../lib/data';
-import { colors, fonts } from '../lib/theme';
+import { colors, fonts, type } from '../lib/theme';
+import { ScreenTransition } from '../components/ScreenTransition';
 
 export default function Favorites() {
-  const insets = useSafeAreaInsets();
+  const padding = useScreenPadding();
   const { favoriteIds } = useFavorites();
   const list = NAMES.filter((n) => favoriteIds.has(n.id));
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: colors.void }}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
-      data={list}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <NameRow name={item} />}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.back}>← Назад</Text>
-          </Pressable>
-          <Text style={styles.title}>Избранное</Text>
-          <Text style={styles.sub}>
-            {list.length > 0 ? `${list.length} сохранено` : 'Пока ничего не отмечено'}
+    <ScreenTransition style={{ backgroundColor: colors.void }}>
+      <FlatList
+        style={{ flex: 1, backgroundColor: colors.void }}
+        contentContainerStyle={[styles.content, padding]}
+        data={list}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <NameRow name={item} />}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <HomeButton />
+            <Text style={styles.title}>Избранное</Text>
+            <Text style={styles.sub}>
+              {list.length > 0 ? `${list.length} сохранено` : 'Пока ничего не отмечено'}
+            </Text>
+          </View>
+        }
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            Отмечайте имена звёздочкой в списке или на экране деталей — они появятся здесь.
           </Text>
-        </View>
-      }
-      ListEmptyComponent={
-        <Text style={styles.empty}>
-          Отмечайте имена звёздочкой в списке или на экране деталей — они появятся здесь.
-        </Text>
-      }
-    />
+        }
+      />
+    </ScreenTransition>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 48,
     flexGrow: 1,
     maxWidth: 480,
     width: '100%',
@@ -50,29 +49,21 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 8,
   },
-  back: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.parchmentDim,
-    marginBottom: 18,
-  },
   title: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 22,
+    ...type.screenTitle,
     color: colors.parchment,
     marginBottom: 4,
   },
   sub: {
     fontFamily: fonts.body,
-    fontSize: 12.5,
+    ...type.small,
     color: colors.parchmentDim,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   empty: {
     fontFamily: fonts.body,
-    fontSize: 13.5,
-    lineHeight: 20,
+    ...type.body,
     color: colors.parchmentDim,
     marginTop: 24,
   },

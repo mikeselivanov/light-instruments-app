@@ -11,11 +11,14 @@ import {
   type NativeSyntheticEvent,
   type ViewStyle,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { colors, fonts } from '../lib/theme';
+import { HomeButton } from '../components/HomeButton';
+import { tappable } from '../lib/interaction';
+import { useScreenPadding } from '../lib/safe-area';
+import { colors, fonts, type } from '../lib/theme';
 import { useNotificationSettings } from '../lib/notifications';
+import { ScreenTransition } from '../components/ScreenTransition';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
@@ -42,7 +45,7 @@ const webWheel = {
 };
 
 export default function Settings() {
-  const insets = useSafeAreaInsets();
+  const padding = useScreenPadding();
   const {
     enabled,
     hour,
@@ -84,63 +87,63 @@ export default function Settings() {
   );
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 20 }]}>
-      <Pressable onPress={() => router.back()}>
-        <Text style={styles.back}>← Назад</Text>
-      </Pressable>
-      <Text style={styles.title}>Настройки</Text>
+    <ScreenTransition style={{ backgroundColor: colors.void }}>
+      <View style={[styles.screen, padding]}>
+        <HomeButton />
+        <Text style={styles.title}>Настройки</Text>
 
-      <View style={styles.row}>
-        <View style={styles.rowText}>
-          <Text style={styles.rowLabel}>Уведомления об имени дня</Text>
-          <Text style={styles.rowSub}>Раз в день напомним открыть новое имя</Text>
-        </View>
-        <Switch
-          value={enabled}
-          onValueChange={setEnabled}
-          disabled={!isLoaded || installRequired}
-          trackColor={{ false: colors.hairline, true: colors.sparkSoft }}
-          thumbColor={enabled ? colors.spark : colors.parchmentDim}
-        />
-      </View>
-
-      {enabled && (
-        <View style={styles.timeRow}>
-          <Text style={styles.rowLabel}>Время</Text>
-          <View style={styles.wheelGroup}>
-            <TimeWheel
-              value={hour}
-              onChange={(next) => {
-                if (next !== hour) setTime(next, minute);
-              }}
-              values={HOURS}
-            />
-            <Text style={styles.colon}>:</Text>
-            <TimeWheel
-              value={minute}
-              onChange={(next) => {
-                if (next !== minute) setTime(hour, next);
-              }}
-              values={MINUTES}
-            />
+        <View style={styles.row}>
+          <View style={styles.rowText}>
+            <Text style={styles.rowLabel}>Уведомления об имени дня</Text>
+            <Text style={styles.rowSub}>Раз в день напомним открыть новое имя</Text>
           </View>
+          <Switch
+            value={enabled}
+            onValueChange={setEnabled}
+            disabled={!isLoaded || installRequired}
+            trackColor={{ false: colors.hairline, true: colors.sparkSoft }}
+            thumbColor={enabled ? colors.spark : colors.parchmentDim}
+          />
         </View>
-      )}
 
-      {hint && (
-        hint.tappable ? (
-          <Pressable
-            onPress={() => Linking.openSettings()}
-            accessibilityRole="button"
-            style={({ pressed }) => pressed && styles.pressed}
-          >
+        {enabled && (
+          <View style={styles.timeRow}>
+            <Text style={styles.rowLabel}>Время</Text>
+            <View style={styles.wheelGroup}>
+              <TimeWheel
+                value={hour}
+                onChange={(next) => {
+                  if (next !== hour) setTime(next, minute);
+                }}
+                values={HOURS}
+              />
+              <Text style={styles.colon}>:</Text>
+              <TimeWheel
+                value={minute}
+                onChange={(next) => {
+                  if (next !== minute) setTime(hour, next);
+                }}
+                values={MINUTES}
+              />
+            </View>
+          </View>
+        )}
+
+        {hint && (
+          hint.tappable ? (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              accessibilityRole="button"
+              style={({ pressed }) => [tappable, pressed && styles.pressed]}
+            >
+              <Text style={styles.hint}>{hint.text}</Text>
+            </Pressable>
+          ) : (
             <Text style={styles.hint}>{hint.text}</Text>
-          </Pressable>
-        ) : (
-          <Text style={styles.hint}>{hint.text}</Text>
-        )
-      )}
-    </View>
+          )
+        )}
+      </View>
+    </ScreenTransition>
   );
 }
 
@@ -245,22 +248,13 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.void,
-    paddingHorizontal: 20,
-    paddingBottom: 48,
     maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
   },
-  back: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.parchmentDim,
-    marginBottom: 18,
-  },
   title: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 22,
+    ...type.screenTitle,
     color: colors.parchment,
     marginBottom: 20,
   },
@@ -281,12 +275,12 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 14.5,
+    ...type.rowTitle,
     color: colors.parchment,
   },
   rowSub: {
     fontFamily: fonts.body,
-    fontSize: 11.5,
+    ...type.small,
     color: colors.parchmentDim,
     marginTop: 3,
   },
@@ -325,25 +319,24 @@ const styles = StyleSheet.create({
   },
   wheelValue: {
     fontFamily: fonts.body,
-    fontSize: 17,
+    fontSize: 19,
     color: colors.parchmentDim,
     opacity: 0.5,
   },
   wheelValueActive: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 24,
+    fontSize: 26,
     color: colors.parchment,
     opacity: 1,
   },
   colon: {
     fontFamily: fonts.displayRuBold,
-    fontSize: 20,
+    fontSize: 22,
     color: colors.parchmentDim,
   },
   hint: {
     fontFamily: fonts.body,
-    fontSize: 12.5,
-    lineHeight: 18,
+    ...type.small,
     color: colors.spark,
     marginTop: 4,
   },

@@ -3,7 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) report real
+         numbers. Without it the browser insets the viewport itself and every
+         inset resolves to 0, which silently turns react-native-safe-area-context
+         into a no-op on web — it reads the insets off a probe element styled
+         with those very env() values. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
+    />
     <title>%WEB_TITLE%</title>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
@@ -38,17 +46,110 @@
         color-scheme: dark;
       }
     </style>
+    <style>
+      /* Everything below is about making the installed app read as an app
+         rather than as a page. None of it has a React Native equivalent —
+         these are document-level properties that sit above #root, outside
+         anything react-native-web can style. */
+      html,
+      body {
+        /* Both axes, and each for its own reason.
+           Vertically: Chrome's pull-to-refresh reloads the PWA and throws away
+           the whole navigation stack, and iOS rubber-bands the page behind the
+           app. The body itself never scrolls (Expo's reset above sets
+           overflow: hidden), so an overscroll at the top of any list chains up
+           to here — this is the only place it can be stopped.
+           Horizontally: a swipe begun near the screen edge was being taken by
+           the browser as page back/forward, so it navigated history instead of
+           moving to the next Name. That is the single most website-like thing
+           left in the installed app. This does not touch the app's own
+           prev/next swipe: that is a pointer-event gesture in
+           react-native-gesture-handler, and overscroll-behavior governs only
+           what happens when a scroll reaches its boundary. */
+        overscroll-behavior: none;
+        /* iOS inflates font sizes on rotation unless told not to, which pulls
+           the fixed type scale in lib/theme.ts out of proportion. */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
+      #root {
+        /* Removes the ~300ms the browser holds every tap for, waiting to see
+           whether a second tap (double-tap-to-zoom) is coming. Panning and
+           pinch-to-zoom are explicitly still allowed, so nothing is taken away
+           from someone who needs to zoom — only the delay goes. The critical
+           buttons also carry this as a style of their own; see
+           lib/interaction.web.ts. */
+        touch-action: manipulation;
+        /* A long press on any label otherwise raises the system text-selection
+           callout with its drag handles, which is the loudest single "this is a
+           web page" tell there is. Native apps do not select their own chrome.
+           The long-form reading text opts back in via `selectableText`. */
+        -webkit-user-select: none;
+        user-select: none;
+        /* The same gesture on a link or image raises the press-and-hold
+           callout ("Open in New Tab", "Save Image"). */
+        -webkit-touch-callout: none;
+        /* Android Chrome flashes a translucent grey rectangle over whatever
+           was tapped. Nothing else says "this is a web page in a browser"
+           as loudly on Android: no native app highlights a whole bounding
+           box on touch. Every control in the app already draws its own
+           pressed state, so this only removes a second, uglier one. */
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* react-native-web renders Pressable as a real <button>, which the
+         browser gives a focus ring to. Keyboard users still need it, so it
+         only goes for pointers: :focus-visible is precisely the "the browser
+         thinks a focus ring is warranted" signal, and tapping never sets it. */
+      #root :focus:not(:focus-visible) {
+        outline: none;
+      }
+
+      /* react-native-web renders every <ScrollView> as an overflow: auto div,
+         so on desktop the platform draws a full web scrollbar down the side of
+         what is meant to look like a phone screen. Touch devices use overlay
+         scrollbars and are unaffected either way; wheel, trackpad and keyboard
+         scrolling all keep working. */
+      #root * {
+        scrollbar-width: none;
+      }
+      #root *::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+    </style>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0e0d12" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- "black", not "black-translucent": translucent makes the web view
-         extend underneath the status bar, and compensating for that needs
-         viewport-fit=cover plus real safe-area insets. Expo's viewport meta
-         has no viewport-fit, so env(safe-area-inset-top) resolves to 0 and
-         the date row would sit under the clock with nothing to push it down. -->
+    <!-- "black", not "black-translucent". Translucent makes the web view extend
+         underneath the status bar, so the app would have to paint and pad that
+         strip itself; "black" keeps iOS in charge of it, which means
+         safe-area-inset-top is legitimately 0 in the installed app. The insets
+         that do matter here are the bottom one (home indicator) and the
+         horizontal ones in landscape, and viewport-fit=cover above now reports
+         both. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="72 Имени" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <script>
+      /* Chrome fires beforeinstallprompt the moment the install criteria are
+         met, which is routinely BEFORE React has mounted — the app renders
+         nothing at all until expo-font has loaded four faces, and the hook
+         that listens for this event only attaches after that. The event does
+         not replay, so it was simply being missed, and since the app also
+         suppresses Chrome's own install UI in favour of its banner, missing it
+         left no way to install the app at all.
+
+         This script runs during parse, long before any of that, and parks the
+         event for the app to collect. See lib/install-prompt.web.ts. */
+      window.__installPromptEvent = null;
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        window.__installPromptEvent = event;
+        window.dispatchEvent(new Event('installpromptready'));
+      });
+    </script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
