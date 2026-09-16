@@ -137,9 +137,9 @@ type Props = { transliteration: string; size: number; color: string; isFinal?: b
 
 Внутри — `Text` с `fontFamily: fonts.displayHebrew`, `fontSize: size`,
 `lineHeight: size`, `includeFontPadding: false` и сдвигом
-`transform: [{ translateY: size * GLYPH_OPTICAL_OFFSET }]`.
+`transform: [{ translateY: size * OPTICAL_OFFSET }]`.
 
-`GLYPH_OPTICAL_OFFSET = 0.05`, и это не подобранное на глаз число. У Ашурита базовая
+`OPTICAL_OFFSET = 0.05`, и это не подобранное на глаз число. У Ашурита базовая
 линия лежит на 0.96em ниже верха строки, а сама строка при штатном интерлиньяже
 высотой 1.37em (0.96 + 0.41 зарезервированного выносного элемента) — см. измерения в
 `lib/hebrew.ts` и `components/HebrewGlyphs.tsx`. При `lineHeight = size` половинный

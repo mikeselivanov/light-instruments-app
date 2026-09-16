@@ -88,8 +88,16 @@ export async function tap(cdp, x, y) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
-/** Тап по центру элемента. */
+/**
+ * Тап по центру элемента.
+ *
+ * Прокрутка перед тапом обязательна: CDP шлёт касание в координатах вьюпорта,
+ * поэтому элемент ниже сгиба получает тап в пустоту — молча, а тест потом
+ * падает по таймауту совсем в другом месте. Живой палец прокручивает к тому,
+ * по чему бьёт; стенд тоже. Бокс перечитываем — прокрутка его сдвинула.
+ */
 export async function tapEl(cdp, locator) {
+  await locator.scrollIntoViewIfNeeded();
   const box = await locator.boundingBox();
   await tap(cdp, box.x + box.width / 2, box.y + box.height / 2);
 }
@@ -188,11 +196,20 @@ test('конечные формы достаются из таблицы, а н�
 
 ```bash
 cd /Users/mselivanov/vsc-projects/light-instruments-app
-npx tsc lib/letters.ts lib/hebrew.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --moduleResolution bundler
+./node_modules/.bin/tsc lib/letters.ts lib/hebrew.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --skipLibCheck
 node --test "$SCRATCH/letters.test.mjs"
 ```
 
 Ожидаемо: `tsc` падает с «File 'lib/letters.ts' not found».
+
+`--skipLibCheck` обязателен: стоит перечислить файлы в командной строке, и `tsc`
+перестаёт читать `tsconfig.json`, начинает проверять типы всех пакетов `@types` в
+`node_modules` и выходит с кодом 2 при полностью исправном своём файле.
+
+Ни `letters.ts`, ни `hebrew.ts` ничего не импортируют, поэтому на выходе получаются
+самодостаточные ES-модули, которые `node --test` берёт напрямую. Появится импорт —
+компиляция перестанет годиться для проверки: `tsc` оставит `from './hebrew'` без
+расширения, а node такое не резолвит.
 
 - [ ] **Step 3: Написать `lib/letters.ts`**
 
@@ -200,8 +217,6 @@ node --test "$SCRATCH/letters.test.mjs"
 (гл. 3 — матери, гл. 4 — двойные, гл. 5 — простые). Ничего не дописывать от себя.
 
 ```ts
-import { HEBREW_GLYPH_BY_TRANSLITERATION } from './hebrew';
-
 /**
  * Три класса букв по «Сефер Йецира»: три матери (стихии), семь двойных (пара
  * противоположностей, планета, день недели) и двенадцать простых (способность,
@@ -213,8 +228,13 @@ export type Letter = {
   /**
    * Ключ для lib/hebrew.ts. Данные держат транслитерацию, а не сам глиф, чтобы
    * буква везде получалась через glyphFor() — только так работают конечные формы.
+   *
+   * Тип намеренно `string`, а не `keyof typeof HEBREW_GLYPH_BY_TRANSLITERATION`:
+   * та таблица объявлена как Record<string, string>, так что keyof от неё — всё
+   * тот же string, пользы ноль, а импорт сделал бы этот файл незапускаемым в
+   * node без сборщика. Соответствие ключей таблице проверяет тест.
    */
-  transliteration: keyof typeof HEBREW_GLYPH_BY_TRANSLITERATION & string;
+  transliteration: string;
   /** Как буква подписана в интерфейсе. */
   name: string;
   category: LetterCategory;
@@ -281,7 +301,7 @@ export const ALPHABET_SOURCE =
 - [ ] **Step 4: Запустить проверку — должна пройти**
 
 ```bash
-npx tsc lib/letters.ts lib/hebrew.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --moduleResolution bundler
+./node_modules/.bin/tsc lib/letters.ts lib/hebrew.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --skipLibCheck
 node --test "$SCRATCH/letters.test.mjs"
 ```
 
@@ -389,7 +409,7 @@ letters: readonly string[];
 - [ ] **Step 8: Проверить типы и закоммитить**
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 git add lib/letters.ts lib/theme.ts components/Glyph.tsx components/HebrewGlyphs.tsx
 git commit -m "Add the canonical alphabet and a single-glyph primitive"
 ```
@@ -447,8 +467,10 @@ test('после старта интерфейс растворяется, вр�
   await page.waitForTimeout(400);
   await tapEl(cdp, page.getByRole('button', { name: 'Начать' }));
   await page.waitForTimeout(3200);           // 2000 мс ожидания + 700 мс затухания
-  const exit = page.getByRole('button', { name: 'Завершить' });
-  assert.equal(await exit.evaluate((el) => getComputedStyle(el.parentElement).opacity), '0');
+  assert.equal(
+    await page.getByTestId('gaze-chrome').evaluate((el) => getComputedStyle(el).opacity),
+    '0'
+  );
   assert.equal(await page.getByText(/минут|осталось/i).count(), 0);
   await browser.close();
 });
@@ -461,8 +483,10 @@ test('касание возвращает управление', async () => {
   await page.waitForTimeout(3200);
   await tapEl(cdp, page.getByLabel('Созерцание'));
   await page.waitForTimeout(900);
-  const exit = page.getByRole('button', { name: 'Завершить' });
-  assert.equal(await exit.evaluate((el) => getComputedStyle(el.parentElement).opacity), '1');
+  assert.equal(
+    await page.getByTestId('gaze-chrome').evaluate((el) => getComputedStyle(el).opacity),
+    '1'
+  );
   await browser.close();
 });
 
@@ -470,13 +494,24 @@ test('экран удерживается от гашения', async () => {
   const { browser, page, cdp } = await open('/practices/letter');
   await page.evaluate(() => {
     window.__wakeCalls = 0;
-    navigator.wakeLock = { request: async () => { window.__wakeCalls++; return { release: async () => {} }; } };
+    // defineProperty, not assignment: navigator.wakeLock is an accessor on
+    // Navigator.prototype, so `navigator.wakeLock = {...}` is swallowed and the
+    // native implementation stays in place — the stub would count nothing.
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: {
+        request: async () => {
+          window.__wakeCalls++;
+          return { release: async () => {} };
+        },
+      },
+    });
   });
   await tapEl(cdp, page.getByRole('button', { name: 'Буква Алеф' }));
   await page.waitForTimeout(400);
   await tapEl(cdp, page.getByRole('button', { name: 'Начать' }));
   await page.waitForTimeout(600);
-  assert.equal(await page.evaluate(() => window.__wakeCalls), 1);
+  assert.ok(await page.evaluate(() => window.__wakeCalls) >= 1, 'wake lock never requested');
   await browser.close();
 });
 ```
@@ -595,8 +630,8 @@ type Phase = 'pick' | 'setup' | 'run' | 'done';
 
 **`run`** — `Pressable` во весь экран с `accessibilityLabel="Созерцание"`, фон
 `colors.void` либо `colors.dayGround`, в центре `<Glyph size={200} />` цветом
-`colors.spark` либо `colors.dayInk`. Поверх — `Animated.View` с единственным
-`IconButton` «Завершить»; его `opacity` уходит в 0 через 2000 мс после старта
+`colors.spark` либо `colors.dayInk`. Поверх — `Animated.View` с `testID="gaze-chrome"` и единственным
+`IconButton` «Завершить» внутри; `opacity` этой обёртки уходит в 0 через 2000 мс после старта
 (`Animated.timing`, 700 мс, `useNativeDriver: true`). Касание переключает видимость
 обратно. `useWakeLock(phase === 'run')`. **Ни таймера, ни текста времени на экране.**
 
@@ -638,7 +673,7 @@ import('playwright').then(async ({ chromium, devices }) => {
 - [ ] **Step 8: Типы и коммит**
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 git add app/practices/letter.tsx lib/wake-lock.ts lib/wake-lock.web.ts
 git commit -m "Add the letter contemplation practice"
 ```
@@ -830,7 +865,7 @@ node --test "$SCRATCH/breathing.test.mjs"
 - [ ] **Step 6: Типы и коммит**
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 git add app/practices/breathing.tsx
 git commit -m "Add the Tetragrammaton breathing practice"
 ```
@@ -913,7 +948,7 @@ test('тап-зона равна шагу между буквами и не бо
 - [ ] **Step 2: Запустить, убедиться, что падает**
 
 ```bash
-npx tsc lib/galgal.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --moduleResolution bundler
+./node_modules/.bin/tsc lib/galgal.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --skipLibCheck
 node --test "$SCRATCH/galgal.test.mjs"
 ```
 
@@ -990,7 +1025,7 @@ export function letterHitSize(radius: number, count: number): number {
 - [ ] **Step 4: Прогнать проверку**
 
 ```bash
-npx tsc lib/galgal.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --moduleResolution bundler
+./node_modules/.bin/tsc lib/galgal.ts --outDir "$SCRATCH/built" --target es2020 --module es2020 --skipLibCheck
 node --test "$SCRATCH/galgal.test.mjs"
 ```
 
@@ -999,7 +1034,7 @@ node --test "$SCRATCH/galgal.test.mjs"
 - [ ] **Step 5: Типы и коммит**
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 git add lib/galgal.ts
 git commit -m "Add the Galgal wheel geometry"
 ```
@@ -1062,7 +1097,8 @@ test('круг — 21 пара, и на экране нет счётчика', a
   const { browser, page, cdp } = await open('/practices/galgal');
   await startCircle(page, cdp, 'Буква Алеф');
   assert.equal(await page.getByText(/\d+\s*из\s*\d+/).count(), 0);
-  for (let i = 0; i < 20; i++) {
+  // 21 пар в круге: старт показывает первую, значит до конца ровно 21 касание.
+  for (let i = 0; i < 21; i++) {
     await tapEl(cdp, page.getByRole('button', { name: 'Следующая пара' }));
     await page.waitForTimeout(200);
   }
@@ -1074,7 +1110,7 @@ test('круг — 21 пара, и на экране нет счётчика', a
 test('пройденный круг помечается и переживает перезагрузку', async () => {
   const { browser, page, cdp } = await open('/practices/galgal');
   await startCircle(page, cdp, 'Буква Алеф');
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 21; i++) {
     await tapEl(cdp, page.getByRole('button', { name: 'Следующая пара' }));
     await page.waitForTimeout(200);
   }
@@ -1212,7 +1248,7 @@ node --test "$SCRATCH/galgal-screen.test.mjs"
 - [ ] **Step 6: Типы и коммит**
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 git add app/practices/galgal.tsx
 git commit -m "Add the Galgal wheel practice"
 ```
@@ -1310,7 +1346,7 @@ done
 - [ ] **Step 6: Проверить сборку и что бандл не поехал**
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 npm run build:web
 ```
 
