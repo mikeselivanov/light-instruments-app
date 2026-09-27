@@ -72,7 +72,11 @@ export function timeSlot(id: number): { from: ClockTime; to: ClockTime } {
  */
 export function deviceOffsetMinutes(date: CalendarDate, time: ClockTime | null): number {
   const t = time ?? { hour: 12, minute: 0 };
-  return -new Date(date.year, date.month - 1, date.day, t.hour, t.minute).getTimezoneOffset();
+  // Rounded: before standard time, zones ran on local mean time, and some
+  // engines report that offset with a fractional minute.
+  return Math.round(
+    -new Date(date.year, date.month - 1, date.day, t.hour, t.minute).getTimezoneOffset()
+  );
 }
 
 export function localToUtc(date: CalendarDate, time: ClockTime, offsetMinutes: number): number {
