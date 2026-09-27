@@ -48,7 +48,17 @@ export function needsInstallForPush(): boolean {
 
 export async function getSubscription(): Promise<PushSubscription | null> {
   if (!pushSupported()) return null;
-  const registration = await navigator.serviceWorker.ready;
+  // `serviceWorker.ready` never settles when registration never completes (a
+  // dev server serving something other than the real script at /sw.js, or any
+  // other environment where the worker never becomes active) — without a
+  // bound, a settings save would hang forever instead of failing and rolling
+  // back to what is actually scheduled server-side.
+  const registration = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('service worker not ready')), 500)
+    ),
+  ]);
   return registration.pushManager.getSubscription();
 }
 

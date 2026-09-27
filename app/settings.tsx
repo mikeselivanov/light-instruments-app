@@ -1,48 +1,22 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  type ViewStyle,
-} from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { HomeButton } from '../components/HomeButton';
+import { TimeStepper } from '../components/TimeStepper';
+import type { ClockTime } from '../lib/stepper-math';
 import { tappable } from '../lib/interaction';
 import { useScreenPadding } from '../lib/safe-area';
 import { colors, fonts, type } from '../lib/theme';
 import { useNotificationSettings } from '../lib/notifications';
 import { ScreenTransition } from '../components/ScreenTransition';
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
-const ITEM_HEIGHT = 44;
-const VISIBLE_ROWS = 3;
-const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
-const WHEEL_PADDING = ITEM_HEIGHT; // one empty row above/below so edge values can reach center
-
-// Web-only. react-native-web ignores snapToInterval, so the wheel is snapped
-// with CSS instead — without it the scroll comes to rest between rows and the
-// selected value sits half outside the highlight. These properties are not in
-// React Native's style types, hence the cast and living outside StyleSheet.
-// `center`, not `start`. The content is padded by one row top and bottom so
-// the selected value sits in the middle of three, which means the code reads
-// the selection as scrollTop / ITEM_HEIGHT. Under `start` the browser snaps
-// row N's top edge to the viewport top, putting its snap points one row
-// higher — and the snap point for the first row lands at ITEM_HEIGHT, not 0,
-// so the first value (00) could never be committed at all. `center` puts the
-// snap points exactly on N * ITEM_HEIGHT, which is the coordinate system the
-// rest of this component already uses.
-const webWheel = {
-  scroll: { scrollSnapType: 'y mandatory' } as unknown as ViewStyle,
-  row: { scrollSnapAlign: 'center' } as unknown as ViewStyle,
-};
+/**
+ * How long the time must sit still before it is saved. On the web every save is
+ * a round-trip to the push server, and holding + on the stepper walks through
+ * dozens of values a second — only the one the user stops on should be sent.
+ */
+const COMMIT_DELAY_MS = 600;
 
 export default function Settings() {
   const padding = useScreenPadding();
@@ -58,6 +32,41 @@ export default function Settings() {
     setTime,
     recheckPermission,
   } = useNotificationSettings();
+
+  // What the stepper shows. It runs ahead of the saved time while the user is
+  // pressing, and falls back in line with it whenever nothing is pending — so
+  // a save the server rejected (setTime rolls back) shows up here too.
+  const [draft, setDraft] = useState<ClockTime>({ hour, minute });
+  const pending = useRef<{ timer: ReturnType<typeof setTimeout>; time: ClockTime } | null>(null);
+
+  useEffect(() => {
+    if (!pending.current) setDraft({ hour, minute });
+  }, [hour, minute]);
+
+  // Leaving the screen inside the delay still saves the last value.
+  useEffect(
+    () => () => {
+      if (!pending.current) return;
+      clearTimeout(pending.current.timer);
+      setTime(pending.current.time.hour, pending.current.time.minute);
+    },
+    // Empty on purpose: this cleanup must run once, at unmount. Listing setTime
+    // would re-run it — and flush a half-finished edit — whenever the
+    // notification context re-renders.
+    []
+  );
+
+  const changeTime = (next: ClockTime) => {
+    setDraft(next);
+    if (pending.current) clearTimeout(pending.current.timer);
+    pending.current = {
+      time: next,
+      timer: setTimeout(() => {
+        pending.current = null;
+        setTime(next.hour, next.minute);
+      }, COMMIT_DELAY_MS),
+    };
+  };
 
   // installRequired outranks the rest: on iOS the Push API is absent until the
   // app is on the Home Screen, so every other message would be misleading.
@@ -109,23 +118,13 @@ export default function Settings() {
         {enabled && (
           <View style={styles.timeRow}>
             <Text style={styles.rowLabel}>Время</Text>
-            <View style={styles.wheelGroup}>
-              <TimeWheel
-                value={hour}
-                onChange={(next) => {
-                  if (next !== hour) setTime(next, minute);
-                }}
-                values={HOURS}
-              />
-              <Text style={styles.colon}>:</Text>
-              <TimeWheel
-                value={minute}
-                onChange={(next) => {
-                  if (next !== minute) setTime(hour, next);
-                }}
-                values={MINUTES}
-              />
-            </View>
+            <TimeStepper
+              variant="inline"
+              minuteStep={5}
+              label="Время уведомления"
+              value={draft}
+              onChange={changeTime}
+            />
           </View>
         )}
 
@@ -144,100 +143,6 @@ export default function Settings() {
         )}
       </View>
     </ScreenTransition>
-  );
-}
-
-function TimeWheel({
-  value,
-  onChange,
-  values,
-}: {
-  value: number;
-  onChange: (next: number) => void;
-  values: number[];
-}) {
-  const scrollRef = useRef<ScrollView>(null);
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Where the wheel is physically parked. Lets the sync effect tell "the
-  // parent accepted, we are already there" from "the parent rejected, scroll
-  // back" — without it the effect re-scrolls after every commit and fights
-  // the browser's own snap animation, which is what made it feel stuttery.
-  const parkedIndex = useRef<number | null>(null);
-  // Bumped on every commit so the sync effect re-runs even when the parent
-  // rejects the change and `value` therefore stays put.
-  const [syncNonce, setSyncNonce] = useState(0);
-
-  const commitOffset = (y: number) => {
-    const index = Math.round(y / ITEM_HEIGHT);
-    const clamped = Math.max(0, Math.min(values.length - 1, index));
-    if (values[clamped] === value) return;
-    parkedIndex.current = clamped;
-    onChange(values[clamped]);
-    setSyncNonce((n) => n + 1);
-  };
-
-  useEffect(
-    () => () => {
-      if (settleTimer.current) clearTimeout(settleTimer.current);
-    },
-    []
-  );
-
-  // react-native-web never emits onMomentumScrollEnd — the web has no notion
-  // of momentum ending — so on web the wheel settles by debouncing onScroll
-  // instead. Without this the value simply never changes when scrolled.
-  const handleScroll =
-    Platform.OS === 'web'
-      ? (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          const y = event.nativeEvent.contentOffset.y;
-          if (settleTimer.current) clearTimeout(settleTimer.current);
-          settleTimer.current = setTimeout(() => commitOffset(y), 180);
-        }
-      : undefined;
-
-  // Keeps the scroll position on whatever `value` actually is. It runs on
-  // mount (ScrollView otherwise starts at 0, not at `value`), whenever the
-  // parent accepts a new value, and — via syncNonce — after a commit the
-  // parent rejected, which is what springs the wheel back instead of leaving
-  // it showing a time the app did not accept.
-  useLayoutEffect(() => {
-    const index = Math.max(0, values.indexOf(value));
-    // Already parked there — either the mount position or a commit the parent
-    // accepted. Scrolling again would only interrupt the browser mid-snap.
-    if (parkedIndex.current === index) return;
-    scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
-    parkedIndex.current = index;
-  }, [value, values, syncNonce]);
-
-  return (
-    <View style={styles.wheel}>
-      <View pointerEvents="none" style={styles.wheelHighlight} />
-      <ScrollView
-        ref={scrollRef}
-        // snapToInterval is a native-only prop: react-native-web does not turn
-        // it into CSS scroll snapping, so the web wheel needs the CSS itself
-        // or it comes to rest between rows.
-        style={[{ height: WHEEL_HEIGHT }, Platform.OS === 'web' && webWheel.scroll]}
-        contentContainerStyle={{ paddingVertical: WHEEL_PADDING }}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_HEIGHT}
-        decelerationRate="fast"
-        scrollEventThrottle={16}
-        onScroll={handleScroll}
-        onMomentumScrollEnd={(e) => commitOffset(e.nativeEvent.contentOffset.y)}
-      >
-        {values.map((v) => (
-          <View
-            key={v}
-            style={[styles.wheelRow, Platform.OS === 'web' && webWheel.row]}
-          >
-            <Text style={[styles.wheelValue, v === value && styles.wheelValueActive]}>
-              {String(v).padStart(2, '0')}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
   );
 }
 
@@ -285,54 +190,17 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: colors.veil,
     borderWidth: 1,
     borderColor: colors.hairlineSoft,
     borderRadius: 14,
-    padding: 16,
+    paddingVertical: 10,
+    paddingLeft: 16,
+    paddingRight: 12,
     marginBottom: 14,
-  },
-  wheelGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  wheel: {
-    width: 70,
-    height: WHEEL_HEIGHT,
-  },
-  wheelHighlight: {
-    position: 'absolute',
-    top: ITEM_HEIGHT,
-    left: 2,
-    right: 2,
-    height: ITEM_HEIGHT,
-    backgroundColor: colors.sparkWash,
-    borderRadius: 8,
-  },
-  wheelRow: {
-    height: ITEM_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wheelValue: {
-    fontFamily: fonts.body,
-    fontSize: 19,
-    color: colors.parchmentDim,
-    opacity: 0.5,
-  },
-  wheelValueActive: {
-    fontFamily: fonts.displayRuBold,
-    fontSize: 26,
-    color: colors.parchment,
-    opacity: 1,
-  },
-  colon: {
-    fontFamily: fonts.displayRuBold,
-    fontSize: 22,
-    color: colors.parchmentDim,
   },
   hint: {
     fontFamily: fonts.body,
