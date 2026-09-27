@@ -1,13 +1,13 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { HebrewGlyphs } from '../components/HebrewGlyphs';
+import { DISPLAY_DOT_RATIO, HebrewGlyphs } from '../components/HebrewGlyphs';
 import { InstallBanner } from '../components/InstallBanner';
 import { PracticeRow } from '../components/PracticeRow';
-import { useFavorites } from '../lib/favorites';
+import { methodLabel, useFavorites } from '../lib/favorites';
 import { tappable } from '../lib/interaction';
 import { useScreenPadding } from '../lib/safe-area';
-import { nameOfTheDay, randomNameId } from '../lib/data';
+import { getNameById, nameOfTheDay, randomNameId } from '../lib/data';
 import { colors, fonts, type } from '../lib/theme';
 import { ScreenTransition } from '../components/ScreenTransition';
 
@@ -65,6 +65,8 @@ export default function Home() {
             <Text style={styles.dayCtaText}>Читать</Text>
           </View>
         </Pressable>
+
+        <BirthTile />
 
         <View style={styles.grid}>
           <Tile
@@ -126,6 +128,67 @@ export default function Home() {
         </View>
       </ScrollView>
     </ScreenTransition>
+  );
+}
+
+/**
+ * The way into the birth screen — or, once the user has taken a name from it
+ * as theirs, that name. The tile then opens the name itself, and «Пересчитать»
+ * is the way back into the calculation. Nothing about the birth is shown: it
+ * was never kept.
+ */
+function BirthTile() {
+  const { myName } = useFavorites();
+  const mine = myName ? getNameById(myName.id) : undefined;
+
+  if (!myName || !mine) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Имя по рождению"
+        onPress={() => router.replace('/birth')}
+        style={({ pressed }) => [styles.birthTile, tappable, pressed && styles.pressed]}
+      >
+        <View style={styles.birthIcon}>
+          <Ionicons name="sunny-outline" size={22} color={colors.thread} />
+        </View>
+        <View style={styles.birthText}>
+          <Text style={styles.tileLabel}>Имя по рождению</Text>
+          <Text style={styles.tileSub}>По дате или времени рождения</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.parchmentDim} />
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Моё имя: ${mine.title}`}
+      onPress={() => router.replace(`/names/${mine.id}`)}
+      style={({ pressed }) => [styles.birthTile, styles.birthTileMine, tappable, pressed && styles.pressed]}
+    >
+      <HebrewGlyphs
+        letters={mine.hebrewLetters}
+        variant="compact"
+        size={24}
+        dotRatio={DISPLAY_DOT_RATIO}
+      />
+      <View style={styles.birthText}>
+        <Text style={styles.birthEyebrow}>Моё имя · {methodLabel(myName.method)}</Text>
+        <Text style={styles.tileLabel} numberOfLines={2}>
+          {mine.title}
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.replace('/birth')}
+        hitSlop={10}
+        style={({ pressed }) => [tappable, pressed && styles.pressed]}
+      >
+        <Text style={styles.birthRecalc}>Пересчитать</Text>
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -242,6 +305,45 @@ const styles = StyleSheet.create({
     ...type.button,
     fontWeight: '700',
     color: colors.void,
+  },
+  birthTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: colors.veil,
+    borderWidth: 1,
+    borderColor: colors.threadBorder,
+    marginBottom: 10,
+  },
+  birthTileMine: {
+    borderColor: colors.sparkSoft,
+  },
+  birthIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.threadSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  birthText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  birthEyebrow: {
+    fontFamily: fonts.body,
+    ...type.eyebrow,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    color: colors.spark,
+    marginBottom: 2,
+  },
+  birthRecalc: {
+    fontFamily: fonts.bodyBold,
+    ...type.small,
+    color: colors.spark,
   },
   grid: {
     flexDirection: 'row',
