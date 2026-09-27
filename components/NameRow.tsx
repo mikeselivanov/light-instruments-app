@@ -1,29 +1,48 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { HebrewGlyphs } from './HebrewGlyphs';
-import { useFavorites } from '../lib/favorites';
+import { DISPLAY_DOT_RATIO, HebrewGlyphs } from './HebrewGlyphs';
+import { methodLabel, useFavorites } from '../lib/favorites';
+import type { BirthMethod } from '../lib/birth-name';
 import { tappable } from '../lib/interaction';
 import { colors, fonts, type } from '../lib/theme';
 import type { DivineName } from '../lib/data';
 
-export function NameRow({ name }: { name: DivineName }) {
+/**
+ * `mine` marks the row as the user's own name from the birth screen: lit in
+ * gold, a «Моё · по дате» plate in place of the category, and the fine
+ * separator dot the user asked for on the new surfaces.
+ */
+export function NameRow({ name, mine }: { name: DivineName; mine?: BirthMethod }) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const favorite = isFavorite(name.id);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.row, tappable, pressed && styles.rowPressed]}
+      style={({ pressed }) => [
+        styles.row,
+        mine && styles.rowMine,
+        tappable,
+        pressed && styles.rowPressed,
+      ]}
       onPress={() => router.replace(`/names/${name.id}`)}
     >
       <Text style={styles.num}>{String(name.id).padStart(2, '0')}</Text>
-      <HebrewGlyphs letters={name.hebrewLetters} variant="compact" />
+      <HebrewGlyphs
+        letters={name.hebrewLetters}
+        variant="compact"
+        dotRatio={mine ? DISPLAY_DOT_RATIO : undefined}
+      />
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={2}>
           {name.title}
         </Text>
-        <Text style={styles.tag} numberOfLines={1}>
-          {name.category}
-        </Text>
+        {mine ? (
+          <Text style={styles.mineBadge}>Моё · {methodLabel(mine)}</Text>
+        ) : (
+          <Text style={styles.tag} numberOfLines={1}>
+            {name.category}
+          </Text>
+        )}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -52,6 +71,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairlineSoft,
+  },
+  rowMine: {
+    backgroundColor: colors.sparkWash,
+    borderWidth: 1,
+    borderColor: colors.sparkSoft,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    marginHorizontal: -6,
+  },
+  mineBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+    overflow: 'hidden',
+    backgroundColor: colors.spark,
+    color: colors.void,
+    fontFamily: fonts.bodyBold,
+    ...type.tag,
+    textTransform: 'uppercase',
   },
   rowPressed: {
     backgroundColor: colors.veil,

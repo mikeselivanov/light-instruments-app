@@ -9,8 +9,11 @@ import { ScreenTransition } from '../components/ScreenTransition';
 
 export default function Favorites() {
   const padding = useScreenPadding();
-  const { favoriteIds } = useFavorites();
-  const list = NAMES.filter((n) => favoriteIds.has(n.id));
+  const { favoriteIds, myName } = useFavorites();
+  // The user's own name leads the list; the rest keep the book's order.
+  const list = NAMES.filter((n) => favoriteIds.has(n.id)).sort(
+    (a, b) => Number(b.id === myName?.id) - Number(a.id === myName?.id)
+  );
 
   return (
     <ScreenTransition style={{ backgroundColor: colors.void }}>
@@ -19,7 +22,9 @@ export default function Favorites() {
         contentContainerStyle={[styles.content, padding]}
         data={list}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <NameRow name={item} />}
+        renderItem={({ item }) => (
+          <NameRow name={item} mine={item.id === myName?.id ? myName.method : undefined} />
+        )}
         ListHeaderComponent={
           <View style={styles.header}>
             <HomeButton />
