@@ -34,8 +34,16 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(MY_NAME_KEY)])
       .then(([rawFavorites, rawMyName]) => {
-        if (rawFavorites) setFavoriteIds(new Set(JSON.parse(rawFavorites)));
-        if (rawMyName) setMyNameState(JSON.parse(rawMyName));
+        const favorites = new Set<number>(rawFavorites ? JSON.parse(rawFavorites) : []);
+        if (rawFavorites) setFavoriteIds(favorites);
+        if (rawMyName) {
+          const stored: MyName = JSON.parse(rawMyName);
+          // "Mine" must always be a favorite. The two keys are written
+          // separately, so a write interrupted between them can leave a my-name
+          // whose star is gone — drop it rather than show an orphan.
+          if (favorites.has(stored.id)) setMyNameState(stored);
+          else AsyncStorage.removeItem(MY_NAME_KEY).catch(() => {});
+        }
       })
       .finally(() => setIsLoaded(true));
   }, []);
