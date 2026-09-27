@@ -39,20 +39,47 @@ export default function Settings() {
   const [draft, setDraft] = useState<ClockTime>({ hour, minute });
   const pending = useRef<{ timer: ReturnType<typeof setTimeout>; time: ClockTime } | null>(null);
 
+  // setTime closes over the provider's settings of the render it came from and
+  // branches on `enabled`. The timer and the unmount flush fire later, so they
+  // must call the latest one — a stale setTime would save with stale settings
+  // (e.g. write enabled:false after the user has just switched it on).
+  const setTimeRef = useRef(setTime);
+  setTimeRef.current = setTime;
+
   useEffect(() => {
     if (!pending.current) setDraft({ hour, minute });
   }, [hour, minute]);
+
+  // Switching notifications off abandons an edit still waiting to be saved:
+  // nothing should be sent after the user turned them off.
+  const dropPending = () => {
+    if (!pending.current) return;
+    clearTimeout(pending.current.timer);
+    pending.current = null;
+    setDraft({ hour, minute });
+  };
+
+  // At the tap itself, not only once `enabled` flips: setEnabled(false) first
+  // awaits the push-subscription lookup, and the timer could fire in between.
+  const toggle = (next: boolean) => {
+    if (!next) dropPending();
+    setEnabled(next);
+  };
+
+  // Also when something else turns them off (recheckPermission).
+  useEffect(() => {
+    if (!enabled) dropPending();
+  }, [enabled]);
 
   // Leaving the screen inside the delay still saves the last value.
   useEffect(
     () => () => {
       if (!pending.current) return;
       clearTimeout(pending.current.timer);
-      setTime(pending.current.time.hour, pending.current.time.minute);
+      setTimeRef.current(pending.current.time.hour, pending.current.time.minute);
     },
-    // Empty on purpose: this cleanup must run once, at unmount. Listing setTime
-    // would re-run it — and flush a half-finished edit — whenever the
-    // notification context re-renders.
+    // Empty on purpose: this cleanup must run once, at unmount; it reaches the
+    // current setTime through setTimeRef.
     []
   );
 
@@ -63,7 +90,7 @@ export default function Settings() {
       time: next,
       timer: setTimeout(() => {
         pending.current = null;
-        setTime(next.hour, next.minute);
+        setTimeRef.current(next.hour, next.minute);
       }, COMMIT_DELAY_MS),
     };
   };
@@ -108,7 +135,7 @@ export default function Settings() {
           </View>
           <Switch
             value={enabled}
-            onValueChange={setEnabled}
+            onValueChange={toggle}
             disabled={!isLoaded || installRequired}
             trackColor={{ false: colors.hairline, true: colors.sparkSoft }}
             thumbColor={enabled ? colors.spark : colors.parchmentDim}
