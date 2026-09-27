@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,9 +84,23 @@ function dateLabel({ year, month, day }: CalendarDate): string {
   return `${day} ${MONTHS_GENITIVE[month - 1]} ${year}`;
 }
 
+/**
+ * `roundToFive` (lib/birth-name.ts) rounds a crossing after 23:57 up to
+ * 00:00 — arithmetically correct, but it reads as the very start of the day
+ * rather than as the late-night crossing it actually is. Kept here, not in
+ * lib/birth-name.ts, because it is purely a display choice for this one
+ * screen: the unrounded minute is what both the boundary text and the
+ * time-prefill fall back to in that one case.
+ */
+function displayCrossingTime(crossing: ClockTime): ClockTime {
+  const rounded = roundToFive(crossing);
+  return crossing.hour === 23 && rounded.hour === 0 ? crossing : rounded;
+}
+
 export default function Birth() {
   const padding = useScreenPadding();
   const today = todayDate();
+  const scrollRef = useRef<ScrollView>(null);
   const [inputs, setInputs] = useState<Inputs>({
     method: 'sun',
     date: { year: 1990, month: 1, day: 1 },
@@ -95,6 +109,13 @@ export default function Birth() {
     manualOffset: null,
   });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+
+  // Each phase (input / result / boundary) is a fresh screen as far as the
+  // reader is concerned, so it should open at its own top — not wherever the
+  // previous phase happened to be scrolled to.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [outcome]);
 
   const offset =
     inputs.manualOffset ??
@@ -122,7 +143,7 @@ export default function Birth() {
 
   return (
     <ScreenTransition style={{ backgroundColor: colors.void }}>
-      <ScrollView contentContainerStyle={[styles.scroll, padding]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.scroll, padding]}>
         <View style={styles.topBar}>
           <HomeButton style={styles.homeButton} />
           {outcome && (
@@ -151,6 +172,8 @@ export default function Birth() {
           <BoundaryPhase
             outcome={outcome}
             date={inputs.date}
+            time={inputs.time}
+            timeKnown={inputs.timeKnown}
             offset={offset}
             onPick={(side) =>
               setOutcome({
@@ -161,11 +184,17 @@ export default function Birth() {
                 longitude: sunLongitude(
                   outcome.crossingUtc + (side === 'before' ? -30 : 30) * MINUTE
                 ),
-                basis: { type: 'pick', side, at: roundToFive(outcome.crossing) },
+                basis: { type: 'pick', side, at: displayCrossingTime(outcome.crossing) },
               })
             }
-            onAddTime={() => {
-              update({ timeKnown: true, time: roundToFive(outcome.crossing) });
+            onChangeTime={() => {
+              // A time the user already typed landed inside the 5-minute
+              // window by itself — going back to fix it must leave that time
+              // exactly as they entered it. Only the no-time case prefills
+              // from the crossing, so there is something to nudge.
+              if (!inputs.timeKnown) {
+                update({ timeKnown: true, time: displayCrossingTime(outcome.crossing) });
+              }
               setOutcome(null);
             }}
           />
@@ -387,7 +416,7 @@ function ResultPhase({
       <Text style={styles.small}>
         {outcome.kind === 'sun'
           ? 'Этот способ пришёл из ангелологии: Ленен, «La Science cabalistique», 1823. В книге Иегуды Берга имя выбирают по жизненной задаче, а не по дате рождения.'
-          : 'Этот способ пришёл из ангелологии, а не из книги Иегуды Берга. Считается по часам в месте рождения.'}
+          : 'Этот способ тоже пришёл из ангелологии — из той же традиции 72 гениев, что и расчёт по дате (Ленен, 1823). В книге Иегуды Берга имя выбирают по жизненной задаче, а не по времени рождения. Считается по часам в месте рождения.'}
       </Text>
     </View>
   );
@@ -404,10 +433,12 @@ function SunExplanation({
 }) {
   const degrees = Math.floor(outcome.longitude);
   const from = (outcome.id - 1) * DEGREES_PER_NAME;
-  const when =
-    outcome.basis.type === 'time'
-      ? `${dateLabel(inputs.date)}, ${formatClock(inputs.time)} (${formatOffset(offset)})`
-      : `${dateLabel(inputs.date)}, время не указано (${formatOffset(offset)})`;
+  // Whether a time was entered at all — not how this particular outcome was
+  // reached. A "pick" from the boundary screen can happen with a time known
+  // (it landed inside the 5-minute window), and that time was still given.
+  const when = inputs.timeKnown
+    ? `${dateLabel(inputs.date)}, ${formatClock(inputs.time)} (${formatOffset(offset)})`
+    : `${dateLabel(inputs.date)}, время не указано (${formatOffset(offset)})`;
   const stood =
     outcome.basis.type === 'time'
       ? `Солнце стояло на ${degrees}° круга — это ${zodiacLabel(outcome.longitude)}.`
@@ -463,25 +494,33 @@ function TimeExplanation({ id, time }: { id: number; time: ClockTime }) {
 function BoundaryPhase({
   outcome,
   date,
+  time,
+  timeKnown,
   offset,
   onPick,
-  onAddTime,
+  onChangeTime,
 }: {
   outcome: Extract<Outcome, { kind: 'boundary' }>;
   date: CalendarDate;
+  time: ClockTime;
+  timeKnown: boolean;
   offset: number;
   onPick: (side: 'before' | 'after') => void;
-  onAddTime: () => void;
+  onChangeTime: () => void;
 }) {
-  const at = formatClock(roundToFive(outcome.crossing));
+  const at = formatClock(displayCrossingTime(outcome.crossing));
   return (
     <View style={styles.phase}>
       <View>
         <Text style={[styles.eyebrow, styles.thread]}>На стыке двух имён</Text>
         <Text style={styles.title}>{dateLabel(date)}</Text>
         <Text style={styles.lead}>
-          В этот день Солнце перешло из одной части круга в следующую — около {at} по{' '}
-          {formatOffset(offset)}. Ваше имя зависит от того, родились вы до или после.
+          {timeKnown
+            ? `Вы родились в ${formatClock(time)} — меньше чем за 5 минут до или после перехода ` +
+              `Солнца в следующую часть круга (около ${at} по ${formatOffset(offset)}). Так близко ` +
+              `к границе расчёт не различает два имени — выберите, какое ближе вам.`
+            : `В этот день Солнце перешло из одной части круга в следующую — около ${at} по ` +
+              `${formatOffset(offset)}. Ваше имя зависит от того, родились вы до или после.`}
         </Text>
       </View>
 
@@ -490,18 +529,24 @@ function BoundaryPhase({
 
       <Pressable
         accessibilityRole="button"
-        onPress={onAddTime}
+        onPress={onChangeTime}
         style={({ pressed }) => [styles.primary, tappable, pressed && styles.pressed]}
       >
-        <Text style={styles.primaryText}>Указать время рождения</Text>
+        <Text style={styles.primaryText}>
+          {timeKnown ? 'Изменить время' : 'Указать время рождения'}
+        </Text>
       </Pressable>
 
       <View style={styles.plate}>
         <Text style={styles.bodyStrong}>Почему так</Text>
         <Text style={styles.small}>
-          Круг зодиака делится на 72 части по 5°, Солнце проходит одну часть примерно за 5 дней.
-          Граница между частями приходится на конкретный час, поэтому в пограничный день без
-          времени рождения точно не скажешь, какое имя ваше.
+          {timeKnown
+            ? 'Круг зодиака делится на 72 части по 5°, Солнце проходит одну часть примерно за 5 ' +
+              'дней. Граница между частями приходится на конкретную секунду, и по времени рождения, ' +
+              'случившегося так близко к ней, нельзя уверенно сказать, до перехода это было или после.'
+            : 'Круг зодиака делится на 72 части по 5°, Солнце проходит одну часть примерно за 5 ' +
+              'дней. Граница между частями приходится на конкретный час, поэтому в пограничный день ' +
+              'без времени рождения точно не скажешь, какое имя ваше.'}
         </Text>
         <Text style={styles.small}>
           Родились в другом часовом поясе? Поменяйте его на экране ввода — время перехода
