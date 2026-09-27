@@ -179,15 +179,17 @@ function BirthTile() {
         <Text style={styles.tileLabel} numberOfLines={2}>
           {mine.title}
         </Text>
+        {/* Under the title rather than beside it: sharing the row squeezed the
+            eyebrow onto two lines. */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace('/birth')}
+          hitSlop={10}
+          style={({ pressed }) => [styles.birthRecalcButton, tappable, pressed && styles.pressed]}
+        >
+          <Text style={styles.birthRecalc}>Пересчитать</Text>
+        </Pressable>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.replace('/birth')}
-        hitSlop={10}
-        style={({ pressed }) => [tappable, pressed && styles.pressed]}
-      >
-        <Text style={styles.birthRecalc}>Пересчитать</Text>
-      </Pressable>
     </Pressable>
   );
 }
@@ -339,6 +341,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.spark,
     marginBottom: 2,
+  },
+  birthRecalcButton: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
   },
   birthRecalc: {
     fontFamily: fonts.bodyBold,
