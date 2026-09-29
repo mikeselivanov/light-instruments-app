@@ -23,7 +23,9 @@ Expo (SDK 54) / React Native app — a browsable reference for the Kabbalistic "
     `SafeAreaProvider` / `GestureHandlerRootView` / `FavoritesProvider`.
   - `app/index.tsx` — home screen (name-of-the-day card + tiles).
   - `app/names/index.tsx` — all names, optionally filtered via the `category` search param.
-  - `app/names/[id].tsx` — name detail screen.
+  - `app/names/[id].tsx` — name detail screen. The eye button opens a meditation mode
+    (`components/NameMeditation.tsx`): only the letters, large (`HebrewGlyphs variant="bare"`),
+    a touch anywhere returns; swipe is off and the screen is kept awake meanwhile.
   - `app/categories/index.tsx`, `app/favorites.tsx`, `app/intro.tsx` — the remaining tiles.
   - `app/birth.tsx` — «Имя по рождению»: имя по дате (положение Солнца, 72 × 5°) или по
     времени (72 × 20 минут). Одна страница без search params: дата рождения не

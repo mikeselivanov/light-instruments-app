@@ -5,8 +5,8 @@ import { colors, fonts } from '../lib/theme';
 
 type Props = {
   letters: readonly string[];
-  variant: 'compact' | 'display';
-  /** Glyph size for the 'compact' variant only; 'display' has one fixed size. */
+  variant: 'compact' | 'display' | 'bare';
+  /** Glyph size for 'compact' and 'bare'; 'display' has one fixed size. */
   size?: number;
   /**
    * Dot size as a fraction of the glyph, for the 'compact' variant.
@@ -129,6 +129,38 @@ export function HebrewGlyphs({ letters, variant, size, dotRatio }: Props) {
                 style={[
                   styles.compactDot,
                   { fontSize: dot, transform: [{ translateY: -4 * scale }] },
+                ]}
+              >
+                ·
+              </Text>
+            )}
+          </Fragment>
+        ))}
+      </View>
+    );
+  }
+
+  // 'bare' — the display letters and dots with nothing else: no captions, any
+  // size. The meditation mode of the name screen, where the letters are the
+  // only thing on the screen and the size follows the screen's width.
+  if (variant === 'bare') {
+    const glyph = size ?? DISPLAY.glyph;
+    const gap = DISPLAY.columnGap * (glyph / DISPLAY.glyph);
+    return (
+      <View style={[styles.displayRow, { gap }]}>
+        {letters.map((letter, i) => (
+          <Fragment key={i}>
+            <Text style={[styles.displayGlyph, { fontSize: glyph }]}>
+              {glyphFor(letter, i === letters.length - 1)}
+            </Text>
+            {i < letters.length - 1 && (
+              <Text
+                style={[
+                  styles.displayDot,
+                  {
+                    fontSize: glyph * DISPLAY_DOT_RATIO,
+                    transform: [{ translateY: glyph * DOT_DROP }],
+                  },
                 ]}
               >
                 ·

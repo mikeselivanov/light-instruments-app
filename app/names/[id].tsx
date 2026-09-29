@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { HebrewGlyphs } from '../../components/HebrewGlyphs';
 import { IconButton } from '../../components/IconButton';
+import { NameMeditation } from '../../components/NameMeditation';
 import { ScreenTransition } from '../../components/ScreenTransition';
 import { selectableText, tappable } from '../../lib/interaction';
 import { useScreenPadding } from '../../lib/safe-area';
@@ -16,6 +18,7 @@ export default function NameDetail() {
   const { paddingBottom, ...edges } = useScreenPadding();
   const { id, dir } = useLocalSearchParams<{ id: string; dir?: string }>();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const [meditating, setMeditating] = useState(false);
 
   const name = getNameById(Number(id));
   if (!name) {
@@ -47,6 +50,8 @@ export default function NameDetail() {
   // why changing Name so often scrolled the page instead. 14/22 moves the
   // boundary out to about 57 degrees; anything plainly vertical still scrolls.
   const swipeGesture = Gesture.Pan()
+    // Off while meditating: a drifting thumb must not change the Name mid-way.
+    .enabled(!meditating)
     .activeOffsetX([-14, 14])
     .failOffsetY([-22, 22])
     .runOnJS(true)
@@ -76,85 +81,100 @@ export default function NameDetail() {
         {/* key: stepping to the next Name is a router.replace, which keeps
             this component mounted and only swaps its params — without a key
             that changes, the animation would run once and never again. */}
-        <ScreenTransition key={name.id} from={dir === 'prev' ? 'left' : 'right'}>
-          {/* The Name and its controls are pinned; only the description
-              scrolls. Two reasons. The letters are what the screen is for —
-              scrolling them off to read about them defeats the point — and
-              with nothing scrollable under the thumb up here, a sideways swipe
-              across the Name can no longer be mistaken for a scroll. */}
-          <View style={[styles.frame, edges]}>
-            {/* Buttons for the same three moves the swipe makes, because a swipe
-                is invisible: nothing on screen says it exists, and it is awkward
-                one-handed on a large phone. These replaced a "← Назад" text link,
-                which at 57x19pt was small enough that a press which drifted a
-                little did nothing at all — or, past the swipe threshold, landed
-                on a different name instead of going back. */}
-            <View style={styles.nav}>
-              <IconButton
-                icon="chevron-back"
-                label="Предыдущее имя"
-                onPress={() => go(prevId, 'prev')}
-              />
-              <IconButton
-                icon="home-outline"
-                label="На главную"
-                // navigate, not push: returns to the home screen already sitting
-                // in the stack rather than stacking a second copy on top of it.
-                onPress={() => router.replace('/')}
-              />
-              <IconButton
-                icon="chevron-forward"
-                label="Следующее имя"
-                onPress={() => go(nextId, 'next')}
-              />
-            </View>
-
-            <View style={styles.hero}>
-              <Text style={styles.num}>Имя {String(name.id).padStart(2, '0')}</Text>
-              <HebrewGlyphs letters={name.hebrewLetters} variant="display" />
-              <Text style={styles.title}>{name.title}</Text>
-              <View style={styles.tags}>
-                {[name.category, ...name.keywords].map((k) => (
-                  <View key={k} style={styles.tag}>
-                    <Text style={styles.tagText}>{k}</Text>
-                  </View>
-                ))}
+        {meditating ? (
+          <NameMeditation letters={name.hebrewLetters} onExit={() => setMeditating(false)} />
+        ) : (
+          <ScreenTransition key={name.id} from={dir === 'prev' ? 'left' : 'right'}>
+            {/* The Name and its controls are pinned; only the description
+                scrolls. Two reasons. The letters are what the screen is for —
+                scrolling them off to read about them defeats the point — and
+                with nothing scrollable under the thumb up here, a sideways swipe
+                across the Name can no longer be mistaken for a scroll. */}
+            <View style={[styles.frame, edges]}>
+              {/* Buttons for the same three moves the swipe makes, because a swipe
+                  is invisible: nothing on screen says it exists, and it is awkward
+                  one-handed on a large phone. These replaced a "← Назад" text link,
+                  which at 57x19pt was small enough that a press which drifted a
+                  little did nothing at all — or, past the swipe threshold, landed
+                  on a different name instead of going back. */}
+              <View style={styles.nav}>
+                <IconButton
+                  icon="chevron-back"
+                  label="Предыдущее имя"
+                  onPress={() => go(prevId, 'prev')}
+                />
+                <View style={styles.navCenter}>
+                  <IconButton
+                    icon="home-outline"
+                    label="На главную"
+                    // navigate, not push: returns to the home screen already sitting
+                    // in the stack rather than stacking a second copy on top of it.
+                    onPress={() => router.replace('/')}
+                  />
+                  {/* Into the meditation mode: the Name alone. A button, not a tap
+                      on the screen — a tap here already stops the description
+                      scrolling or starts a text selection, and an invisible
+                      gesture is one nobody finds. See components/NameMeditation. */}
+                  <IconButton
+                    icon="eye-outline"
+                    label="Созерцать имя"
+                    onPress={() => setMeditating(true)}
+                  />
+                </View>
+                <IconButton
+                  icon="chevron-forward"
+                  label="Следующее имя"
+                  onPress={() => go(nextId, 'next')}
+                />
               </View>
-            </View>
 
-            <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.btn,
-                  tappable,
-                  favorite && styles.btnPrimary,
-                  pressed && styles.btnPressed,
-                ]}
-                onPress={() => toggleFavorite(name.id)}
-              >
-                <Text style={[styles.btnText, favorite && styles.btnPrimaryText]}>
-                  {favorite ? '★ В избранном' : '☆ В избранное'}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.btn, tappable, pressed && styles.btnPressed]}
-                onPress={() => router.replace(`/names/${randomNameId(name.id)}`)}
-              >
-                <Text style={styles.btnText}>↻ Случайное</Text>
-              </Pressable>
-            </View>
+              <View style={styles.hero}>
+                <Text style={styles.num}>Имя {String(name.id).padStart(2, '0')}</Text>
+                <HebrewGlyphs letters={name.hebrewLetters} variant="display" />
+                <Text style={styles.title}>{name.title}</Text>
+                <View style={styles.tags}>
+                  {[name.category, ...name.keywords].map((k) => (
+                    <View key={k} style={styles.tag}>
+                      <Text style={styles.tagText}>{k}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
 
-            <ScrollView
-              style={styles.scroller}
-              contentContainerStyle={{ paddingBottom }}
-            >
-              <Text style={styles.blockHeading}>Описание</Text>
-              <Text style={[styles.blockText, selectableText]}>{name.summary}</Text>
-            </ScrollView>
-          </View>
-        </ScreenTransition>
+              <View style={styles.actions}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.btn,
+                    tappable,
+                    favorite && styles.btnPrimary,
+                    pressed && styles.btnPressed,
+                  ]}
+                  onPress={() => toggleFavorite(name.id)}
+                >
+                  <Text style={[styles.btnText, favorite && styles.btnPrimaryText]}>
+                    {favorite ? '★ В избранном' : '☆ В избранное'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.btn, tappable, pressed && styles.btnPressed]}
+                  onPress={() => router.replace(`/names/${randomNameId(name.id)}`)}
+                >
+                  <Text style={styles.btnText}>↻ Случайное</Text>
+                </Pressable>
+              </View>
+
+              <ScrollView
+                style={styles.scroller}
+                contentContainerStyle={{ paddingBottom }}
+              >
+                <Text style={styles.blockHeading}>Описание</Text>
+                <Text style={[styles.blockText, selectableText]}>{name.summary}</Text>
+              </ScrollView>
+            </View>
+          </ScreenTransition>
+        )}
       </View>
     </GestureDetector>
   );
@@ -187,6 +207,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 22,
+  },
+  navCenter: {
+    flexDirection: 'row',
+    gap: 10,
   },
   hero: {
     alignItems: 'center',
